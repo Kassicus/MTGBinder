@@ -1,5 +1,5 @@
 // `pnpm move-library`: copies the library from data/ (or BINDER_DATA_DIR) to Binder.app's folder,
-// ~/Library/Application Support/Binder, once (spec §3.2). Binder must not be running; data/ is left as it is, and the
+// ~/Library/Application Support/Binder, once (spec §3.4). Binder must not be running; data/ is left as it is, and the
 // API key isn't copied (it's entered again in Binder.app's Settings).
 import net from 'node:net'
 import { APP_LIBRARY_DIR, DATA_DIR } from '../src/server/config.ts'

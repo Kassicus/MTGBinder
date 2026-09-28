@@ -44,7 +44,10 @@ export interface RunningBinder {
   /** The web app's address: `http://localhost:<port>`. */
   url: string
   port: number
-  /** Stops listening, then closes the OCR helper and the library. */
+  /**
+   * Stops listening, then closes the OCR helper and the library. It doesn't wait for a card-data refresh or a scan in
+   * progress: it's meant to be followed by the process exiting, as Binder.app's server does.
+   */
   stop(): Promise<void>
 }
 

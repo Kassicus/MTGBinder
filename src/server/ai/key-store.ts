@@ -15,8 +15,9 @@ function keyValue(raw: string): string {
 }
 
 /**
- * The Anthropic API key, kept in the project's `.env` file (spec §3.1, §5.6). Other lines in the file are left as
- * they are. The file is written with mode 600, so only the owner can read it.
+ * The Anthropic API key, kept in a `.env` file: the project's for Binder run from the terminal, the library folder's
+ * for Binder.app (spec §3.1, §3.4, §5.6). Other lines in the file are left as they are. The file is written with mode
+ * 600, so only the owner can read it.
  */
 export interface KeyStore {
   /** The saved key, or null. */

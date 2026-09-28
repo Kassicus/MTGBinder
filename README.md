@@ -30,8 +30,9 @@ pnpm move-library   # copies data/ to ~/Library/Application Support/Binder; data
 
 Then open Binder from Spotlight, Launchpad, or Applications, and enter your Anthropic API key again in Settings (it
 isn't copied). Closing the window keeps Binder running in the menu bar, so scans finish and card data refreshes;
-click the menu-bar icon (or the Dock icon) to open it again, and **Quit Binder** there, or Cmd+Q, to stop it. Opening
-Binder again while it runs brings its window forward, and links to Scryfall and other sites open in your browser.
+click the menu-bar icon, then **Open Binder** (or click the Dock icon) to open it again; **Quit Binder** in the
+menu-bar icon's menu, or Cmd+Q, stops it. Opening Binder again while it runs brings its window forward, and links to
+Scryfall and other sites open in your browser.
 The first time you open Scan, macOS asks whether Binder may use the camera; your iPhone appears through Continuity
 Camera as it does in a browser. If it's refused (by mistake, or after an update), turn Binder on in System Settings →
 Privacy & Security → Camera, then quit and reopen Binder; if its switch is already on and the camera still won't
@@ -143,7 +144,8 @@ dropdown, instead of opening it.)
 
 ```bash
 pnpm dev            # API on :4321 (auto-restarts) + Vite on http://localhost:5173
-pnpm app:dev        # Binder.app's window, run from the project on data/ (no packaging)
+pnpm app:dev        # Binder.app's window, run from the project on data/ (no packaging): its key is data/.env
+                    # (not the project's .env), and it writes data/Electron/ and data/Logs/
 pnpm app --no-install   # packages Binder.app into release/ without installing it
 pnpm test           # unit and integration tests
 pnpm typecheck
@@ -162,4 +164,5 @@ To restore a backup, stop Binder and copy it over `data/binder.db` (Binder.app's
 `BINDER_DATA_DIR` to use a different folder.
 Replacing card data leaves unused space inside `data/binder.db`; Settings → Library file shows how much (its size
 also counts the log beside the file), and **Compact the library** gives it back (after a backup).
-If port 4321 is taken (Binder may already be running), start with `PORT=4322 pnpm start`.
+If port 4321 is taken (Binder may already be running, from a terminal or as Binder.app in the menu bar), start with
+`PORT=4322 pnpm start`.

@@ -66,12 +66,13 @@ export function describeLibrary(s: LibrarySummary): string {
 }
 
 /**
- * Copies the library in `from` (the project's data/) to `to` (Binder.app's folder, spec §3.2). The copy is staged in
+ * Copies the library in `from` (the project's data/) to `to` (Binder.app's folder, spec §3.4). The copy is staged in
  * `to/.moving` and checked there first: the database through SQLite's backup, so it's whole even while its log holds
  * changes, then backups/, bulk/, and scans/. Nothing in `to` changes until all of it has checked out; then it's put in
  * place by renames, the database last, so a move stopped partway leaves no library and the next run starts again. A
  * library already in `to` is left alone, unless nothing was ever added to it (Binder.app opened before the move), which
- * is replaced. `from` is only read. Returns what the copy holds.
+ * is replaced. `from` is only read, though SQLite may leave empty `binder.db-shm` and `binder.db-wal` beside a closed
+ * source (the database file itself isn't changed). Returns what the copy holds.
  */
 export async function moveLibrary(from: string, to: string): Promise<LibrarySummary> {
   const source = libraryPaths(from).dbPath
@@ -99,7 +100,7 @@ export async function moveLibrary(from: string, to: string): Promise<LibrarySumm
     const copy = new Database(staged, { fileMustExist: true })
     const check = copy.pragma('integrity_check', { simple: true })
     copy.close()
-    if (check !== 'ok') throw new MoveError(`The copy of the library didn't check out (${String(check)}): nothing was copied.`)
+    if (check !== 'ok') throw new MoveError(`The copy of the library didn't check out (${String(check)}): nothing was changed.`)
     for (const folder of FOLDERS) {
       const dir = path.join(from, folder)
       if (fs.existsSync(dir)) fs.cpSync(dir, path.join(staging, folder), { recursive: true, preserveTimestamps: true })

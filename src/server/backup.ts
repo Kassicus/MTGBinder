@@ -123,7 +123,8 @@ export interface DailyBackup {
  * newest 7 by date, always counting the one just saved). Back up now's extra copies and the copies saved before an
  * upgrade are kept apart, and this pruning doesn't count them. It first removes partial copies interrupted backups left.
  * An existing backup for today is never replaced: after a restore it may hold newer data than the database.
- * Restore by stopping Binder and copying a backup over data/binder.db (deleting binder.db-wal and -shm).
+ * Restore by stopping Binder and copying a backup over the library folder's binder.db (the project's data/, or
+ * Binder.app's ~/Library/Application Support/Binder), deleting binder.db-wal and -shm.
  * Returns the backup it saved or found for today, or null when none was due.
  */
 export function backupIfDue(db: DB, dir: string, now = new Date()): DailyBackup | null {

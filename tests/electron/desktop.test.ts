@@ -6,7 +6,7 @@ import { startingPage, startupFailure } from '../../electron/messages.ts'
 import { appPaths } from '../../electron/paths.ts'
 import { APP_LIBRARY_DIR } from '../../src/server/config.ts'
 
-describe('appPaths (spec §3.2)', () => {
+describe('appPaths (spec §3.4)', () => {
   const appData = '/Users/me/Library/Application Support'
   const base = { appData, appRoot: '/Applications/Binder.app/Contents/Resources/app', packaged: true, env: {} }
 

@@ -1,4 +1,4 @@
-// Binder.app (spec §3.2): one window onto Binder's pages, a menu-bar icon, and Binder's server in its own process.
+// Binder.app (spec §3.4): one window onto Binder's pages, a menu-bar icon, and Binder's server in its own process.
 // Closing the window keeps Binder running (scans finish, card data refreshes); Quit (Cmd+Q, or the menu-bar icon's
 // menu) stops everything. Entry point: package.json "main".
 import fs from 'node:fs'

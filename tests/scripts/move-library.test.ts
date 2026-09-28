@@ -33,7 +33,7 @@ function library(dir: string) {
   return db
 }
 
-describe('moveLibrary (spec §3.2)', () => {
+describe('moveLibrary (spec §3.4)', () => {
   it('copies the database whole, even with changes still in its log, with its backups, card data, and scans', async () => {
     const dir = scratch()
     const from = path.join(dir, 'data')

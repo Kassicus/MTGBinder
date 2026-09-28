@@ -16,7 +16,7 @@ export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const DATA_DIR = process.env.BINDER_DATA_DIR
   ? path.resolve(process.env.BINDER_DATA_DIR)
   : path.join(ROOT_DIR, 'data')
-export const { dbPath: DB_PATH, backupDir: BACKUP_DIR, scansDir: SCANS_DIR } = libraryPaths(DATA_DIR)
+export const { dbPath: DB_PATH, backupDir: BACKUP_DIR } = libraryPaths(DATA_DIR)
 export const WEB_DIST_DIR = path.join(ROOT_DIR, 'dist', 'web')
 export const HOST = '127.0.0.1'
 export const PORT = Number(process.env.PORT ?? 4321)
@@ -27,5 +27,5 @@ export const OCR_BINARY = path.join(ROOT_DIR, 'bin', 'ocr')
 export const BENCH_DIR = path.join(DATA_DIR, 'bench')
 /** Holds ANTHROPIC_API_KEY, written by the Settings page (spec §3.1). */
 export const ENV_PATH = path.join(ROOT_DIR, '.env')
-/** Binder.app's library (spec §3.2); `pnpm move-library` copies data/ there. */
+/** Binder.app's library (spec §3.4); `pnpm move-library` copies data/ there. */
 export const APP_LIBRARY_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'Binder')

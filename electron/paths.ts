@@ -4,7 +4,7 @@ import { portProblem } from '../src/server/startup.ts'
 /** Where Binder.app listens: the same address as Binder from the terminal. */
 export const APP_PORT = 4321
 
-/** Where Binder.app keeps things, and where it listens (spec §3.2). */
+/** Where Binder.app keeps things, and where it listens (spec §3.4). */
 export interface AppPaths {
   /** The library: `binder.db`, with `backups/`, `bulk/`, and `scans/` beside it. */
   dataDir: string

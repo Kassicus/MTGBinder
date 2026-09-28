@@ -31,9 +31,9 @@ export function openDb(
 }
 
 /**
- * Opens the owner's library for the server and the scripts: an existing library is copied to `backupDir` before a
- * migration upgrades it, saying so. When the library can't be opened, or that copy fails, prints one line (no stack)
- * and exits with status 1; the library is left as it was.
+ * Opens the owner's library for the scripts (`pnpm setup`, `pnpm ocr:bench`; the server opens it in startBinder): an
+ * existing library is copied to `backupDir` before a migration upgrades it, saying so. When the library can't be
+ * opened, or that copy fails, prints one line (no stack) and exits with status 1; the library is left as it was.
  */
 export function openLibrary(file: string, backupDir: string): DB {
   try {

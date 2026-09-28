@@ -2761,7 +2761,8 @@ EOF
 After the final review and its fix wave, and only with the owner's OK at that moment:
 
 1. The owner quits Binder in the terminal if it runs (nothing on port 4321).
-2. `pnpm app` builds Binder.app and puts it in `/Applications`.
+2. `pnpm install` (the main checkout doesn't have Electron or electron-builder yet), then `pnpm app` builds Binder.app
+   and puts it in `/Applications`.
 3. With the owner's OK: `pnpm move-library`. Report its summary line (copies, cards, decks).
 4. The owner opens Binder from Spotlight, allows the camera on Scan, picks the iPhone, enters the API key again in
    Settings → Anthropic API key, and checks the collection and decks are all there.
