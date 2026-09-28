@@ -1,8 +1,10 @@
-# Dependencies and build output (build/: Binder.app's icons, which pnpm icons draws)
+# Dependencies and build output (build/: Binder.app's icons, which pnpm icons draws; release/: Binder.app, which
+# pnpm app builds)
 node_modules/
 dist/
 bin/
 build/
+release/
 
 # The library, its backups, card data, and scans: personal, and large. Never committed.
 data/

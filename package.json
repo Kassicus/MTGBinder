@@ -1,6 +1,7 @@
 {
   "name": "binder",
   "version": "0.1.0",
+  "description": "Personal MTG collection manager: collection, decks, scanning, and a deckbuilding chat.",
   "private": true,
   "type": "module",
   "main": "electron/main.ts",
@@ -18,7 +19,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p .",
     "icons": "swift scripts/make-icons.swift build/icons",
-    "app:dev": "pnpm icons && vite build && electron ."
+    "app:dev": "pnpm icons && vite build && electron .",
+    "app": "node scripts/app.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -30,16 +32,13 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",
     "@hono/node-server": "2.1.1",
-    "@tanstack/react-query": "5.104.0",
     "better-sqlite3": "13.0.3",
     "hono": "4.13.9",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "react-router": "8.4.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-query": "5.104.0",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.3",
     "@types/react": "19.3.0",
@@ -47,9 +46,42 @@
     "@vitejs/plugin-react": "6.1.1",
     "concurrently": "10.0.5",
     "electron": "44.4.5",
+    "electron-builder": "26.15.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router": "8.4.0",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.3.1",
     "vitest": "5.0.2"
+  },
+  "build": {
+    "appId": "local.binder.app",
+    "productName": "Binder",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "package.json",
+      "electron/**",
+      "src/server/**",
+      "src/shared/**",
+      "dist/web/**",
+      "bin/ocr",
+      "build/icons/trayTemplate*.png"
+    ],
+    "asar": false,
+    "npmRebuild": false,
+    "mac": {
+      "target": "dir",
+      "icon": "build/icons/Binder.icns",
+      "category": "public.app-category.utilities",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Binder uses the camera to scan your cards.",
+        "NSCameraUseContinuityCameraDeviceType": true
+      }
+    }
   }
 }
