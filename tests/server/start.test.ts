@@ -50,6 +50,8 @@ describe('startBinder (spec §6)', () => {
     expect(options.lines.some((l) => l.startsWith('[backup] Saved '))).toBe(true)
     await binder.stop()
     await expect(fetch(`${binder.url}/api/health`)).rejects.toThrow()
+    // The library was closed: SQLite folds its write-ahead log back in and removes it only when the last handle closes.
+    expect(fs.existsSync(path.join(options.dataDir, 'binder.db-wal'))).toBe(false)
     // Stopped for good: the library can be opened and started again.
     const again = await startBinder({ ...options, port })
     await again.stop()
@@ -67,6 +69,7 @@ describe('startBinder (spec §6)', () => {
       code: 'port_in_use',
       message: `Port ${port} is already in use: Binder may already be running. Stop it, or start this one with PORT set to another port.`,
     })
+    expect(fs.existsSync(path.join(options.dataDir, 'binder.db-wal'))).toBe(false)
     // Nothing kept the library open: another Binder starts on it.
     const binder = await startBinder({ ...options, port: await freePort() })
     await binder.stop()

@@ -1,8 +1,10 @@
+import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { externalUrl, isAppUrl, permissionAllowed } from '../../electron/links.ts'
 import { startingPage, startupFailure } from '../../electron/messages.ts'
 import { appPaths } from '../../electron/paths.ts'
+import { APP_LIBRARY_DIR } from '../../src/server/config.ts'
 
 describe('appPaths (spec §3.2)', () => {
   const appData = '/Users/me/Library/Application Support'
@@ -32,6 +34,11 @@ describe('appPaths (spec §3.2)', () => {
       port: 4455,
     })
     expect(() => appPaths({ ...base, env: { PORT: 'abc' } })).toThrow('PORT must be a port number from 1 to 65535, not "abc".')
+  })
+
+  it('opens the library pnpm move-library copies to, and pnpm start names', () => {
+    const appData = path.join(os.homedir(), 'Library', 'Application Support')
+    expect(appPaths({ ...base, appData }).dataDir).toBe(APP_LIBRARY_DIR)
   })
 })
 
