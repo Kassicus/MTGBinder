@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  /* The Scan page's capture flash. */
+  --animate-flash: flash 300ms ease-out forwards;
+  @keyframes flash {
+    from {
+      opacity: 0.7;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-stone-950 text-stone-200 antialiased;
+}

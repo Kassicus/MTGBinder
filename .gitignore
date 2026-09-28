@@ -1,0 +1,16 @@
+# Dependencies and build output
+node_modules/
+dist/
+bin/
+
+# The library, its backups, card data, and scans: personal, and large. Never committed.
+data/
+
+# The Anthropic API key and any other local environment. Never committed.
+.env
+.env.*
+
+# Scratch workspaces, logs, and OS files
+.superpowers/
+*.log
+.DS_Store

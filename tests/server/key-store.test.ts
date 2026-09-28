@@ -1,0 +1,105 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { createKeyStore } from '../../src/server/ai/key-store.ts'
+
+/** A `.env` holding `text`, in a temporary folder that's removed after the test. */
+function envFile(text: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'binder-env-'))
+  onTestFinished(() => fs.rmSync(dir, { recursive: true, force: true }))
+  const envPath = path.join(dir, '.env')
+  fs.writeFileSync(envPath, text)
+  return envPath
+}
+
+describe('createKeyStore (spec §5.6)', () => {
+  it('saves over a .env others can read, leaving it private, its other lines kept, and no temporary file', () => {
+    const envPath = envFile('OTHER_SETTING=1\n# a comment\n')
+    fs.chmodSync(envPath, 0o644)
+    fs.writeFileSync(`${envPath}.${process.pid}.tmp`, 'left by a save that crashed')
+    createKeyStore(envPath).write('sk-ant-api03-good-key-1234')
+    expect(fs.readFileSync(envPath, 'utf8')).toBe('OTHER_SETTING=1\n# a comment\nANTHROPIC_API_KEY=sk-ant-api03-good-key-1234\n')
+    expect(fs.statSync(envPath).mode & 0o777).toBe(0o600)
+    expect(fs.readdirSync(path.dirname(envPath))).toEqual(['.env'])
+  })
+
+  it('reads a key on an `export` line, and replaces it where it was, keeping its `export`', () => {
+    const envPath = envFile('OTHER_SETTING=1\nexport ANTHROPIC_API_KEY=sk-ant-api03-exported-1111\nLATER=2\nANTHROPIC_API_KEY=old\n')
+    const store = createKeyStore(envPath)
+    expect(store.read()).toBe('sk-ant-api03-exported-1111')
+    store.write('sk-ant-api03-new-key-2222')
+    expect(fs.readFileSync(envPath, 'utf8')).toBe('OTHER_SETTING=1\nexport ANTHROPIC_API_KEY=sk-ant-api03-new-key-2222\nLATER=2\n')
+    expect(store.read()).toBe('sk-ant-api03-new-key-2222')
+    store.write(null)
+    expect(fs.readFileSync(envPath, 'utf8')).toBe('OTHER_SETTING=1\nLATER=2\n')
+  })
+
+  it('leaves no temporary file holding the key when the save fails, and still reports the failure', () => {
+    const envPath = envFile('OTHER_SETTING=1\n')
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementationOnce(() => {
+      throw new Error('EXDEV: cross-device link not permitted')
+    })
+    onTestFinished(() => rename.mockRestore())
+    expect(() => createKeyStore(envPath).write('sk-ant-api03-good-key-1234')).toThrow('EXDEV')
+    expect(rename).toHaveBeenCalledOnce()
+    expect(fs.readdirSync(path.dirname(envPath))).toEqual(['.env'])
+    expect(fs.readFileSync(envPath, 'utf8')).toBe('OTHER_SETTING=1\n')
+  })
+
+  it("drops an unquoted key's trailing comment, and a quoted key's quotes and what follows them", () => {
+    expect(createKeyStore(envFile('ANTHROPIC_API_KEY=sk-ant-abc123 # my key\n')).read()).toBe('sk-ant-abc123')
+    expect(createKeyStore(envFile('ANTHROPIC_API_KEY="sk-ant-abc123"\n')).read()).toBe('sk-ant-abc123')
+    expect(createKeyStore(envFile(`ANTHROPIC_API_KEY='sk-ant-abc123' # my key\n`)).read()).toBe('sk-ant-abc123')
+  })
+
+  it('reads no key from a line that holds only a comment', () => {
+    expect(createKeyStore(envFile('ANTHROPIC_API_KEY= # paste here\n')).read()).toBeNull()
+    expect(createKeyStore(envFile('ANTHROPIC_API_KEY=#paste-here\n')).read()).toBeNull()
+  })
+
+  it('writes through a symlinked .env, keeping the link', () => {
+    const real = envFile('OTHER_SETTING=1\n')
+    const envPath = path.join(path.dirname(real), 'linked.env')
+    fs.symlinkSync(real, envPath)
+    createKeyStore(envPath).write('sk-ant-api03-good-key-1234')
+    expect(fs.lstatSync(envPath).isSymbolicLink()).toBe(true)
+    expect(fs.readFileSync(real, 'utf8')).toBe('OTHER_SETTING=1\nANTHROPIC_API_KEY=sk-ant-api03-good-key-1234\n')
+    expect(fs.statSync(real).mode & 0o777).toBe(0o600)
+  })
+
+  it('writes a hard-linked .env others can read in place, so every name for it sees the key, leaving it private', () => {
+    const envPath = envFile('OTHER_SETTING=1\n')
+    fs.chmodSync(envPath, 0o644)
+    const other = path.join(path.dirname(envPath), 'other-name.env')
+    fs.linkSync(envPath, other)
+    createKeyStore(envPath).write('sk-ant-api03-good-key-1234')
+    expect(fs.readFileSync(other, 'utf8')).toBe('OTHER_SETTING=1\nANTHROPIC_API_KEY=sk-ant-api03-good-key-1234\n')
+    expect(fs.statSync(other).mode & 0o777).toBe(0o600)
+  })
+
+  it("removes temporary copies a crashed save left, this process's or an ended one's, and nothing else", () => {
+    const envPath = envFile('OTHER_SETTING=1\n')
+    const dir = path.dirname(envPath)
+    // This process's own leftover, and ones under ids no process can have (2147483646 and 2147483645 are above any
+    // system's limit).
+    for (const name of ['.env.2147483646.tmp', `.env.${process.pid}.tmp`, '.env.backup', 'notes.tmp']) {
+      fs.writeFileSync(path.join(dir, name), 'x')
+    }
+    const store = createKeyStore(envPath)
+    expect(fs.readdirSync(dir).sort()).toEqual(['.env', '.env.backup', 'notes.tmp'])
+    fs.writeFileSync(path.join(dir, '.env.2147483645.tmp'), 'left by a save that was killed')
+    store.write('sk-ant-api03-good-key-1234')
+    expect(fs.readdirSync(dir).sort()).toEqual(['.env', '.env.backup', 'notes.tmp'])
+  })
+
+  it('keeps a temporary copy another running process is still saving', () => {
+    const envPath = envFile('OTHER_SETTING=1\n')
+    const dir = path.dirname(envPath)
+    const saving = `.env.${process.ppid}.tmp` // the process that started this one is running
+    fs.writeFileSync(path.join(dir, saving), 'another save, not yet renamed')
+    createKeyStore(envPath).write('sk-ant-api03-good-key-1234')
+    expect(fs.readdirSync(dir).sort()).toEqual(['.env', saving])
+    expect(fs.readFileSync(path.join(dir, saving), 'utf8')).toBe('another save, not yet renamed')
+  })
+})

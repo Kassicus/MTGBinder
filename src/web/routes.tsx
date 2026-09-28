@@ -1,0 +1,28 @@
+import { createBrowserRouter } from 'react-router'
+import { Layout } from './components/Layout.tsx'
+import { BrainstormPage } from './pages/BrainstormPage.tsx'
+import { DeckEditorPage } from './pages/DeckEditorPage.tsx'
+import { DecksPage } from './pages/DecksPage.tsx'
+import { HomePage } from './pages/HomePage.tsx'
+import { LibraryPage } from './pages/LibraryPage.tsx'
+import { ScanPage } from './pages/ScanPage.tsx'
+import { SearchPage } from './pages/SearchPage.tsx'
+import { SettingsPage } from './pages/SettingsPage.tsx'
+
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'search', element: <SearchPage /> },
+      { path: 'library', element: <LibraryPage /> },
+      { path: 'scan', element: <ScanPage /> },
+      { path: 'decks', element: <DecksPage /> },
+      { path: 'decks/:id', element: <DeckEditorPage /> },
+      { path: 'brainstorm', element: <BrainstormPage /> },
+      { path: 'brainstorm/:threadId', element: <BrainstormPage /> },
+      { path: 'settings', element: <SettingsPage /> },
+    ],
+  },
+])
