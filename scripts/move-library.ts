@@ -24,6 +24,8 @@ if (appRunning('/Applications/Binder.app') || (await answers(APP_PORT))) {
   process.exit(1)
 }
 try {
+  // The copy and its check take a while on a real library (tens of seconds): say it has started.
+  console.log(`Copying your library from ${DATA_DIR} to ${APP_LIBRARY_DIR}…`)
   const summary = await moveLibrary(DATA_DIR, APP_LIBRARY_DIR)
   console.log(`Copied your library (${describeLibrary(summary)}) to ${APP_LIBRARY_DIR}.`)
   console.log('Open Binder.app to use it, and enter your Anthropic API key again in Settings → Anthropic API key.')

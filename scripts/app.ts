@@ -1,8 +1,9 @@
 // `pnpm app`: builds Binder.app (its icons, the web app, the OCR helper, then electron-builder) and puts it in
 // /Applications, replacing the one there. `pnpm app --no-install` leaves it in release/, where the check runs it.
 import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
-import { OCR_BINARY, OCR_SOURCE, ROOT_DIR } from '../src/server/config.ts'
+import { APP_LIBRARY_DIR, DB_PATH, libraryPaths, OCR_BINARY, OCR_SOURCE, ROOT_DIR } from '../src/server/config.ts'
 import { buildOcrHelper } from '../src/server/scanner/ocr-client.ts'
 import { appRunning, builtApp, installApp } from './lib/install.ts'
 
@@ -31,4 +32,9 @@ if (!install) {
   process.exitCode = 1
 } else {
   console.log(`Installed ${installApp(built, APPLICATIONS)}. Open Binder from Spotlight, Launchpad, or Applications.`)
+  // The first install: Binder.app opened before the move starts a library of its own, which a scan or a card added
+  // there keeps from being replaced by the move.
+  if (!fs.existsSync(libraryPaths(APP_LIBRARY_DIR).dbPath) && fs.existsSync(DB_PATH)) {
+    console.log('Before opening it the first time, run pnpm move-library to bring your library over.')
+  }
 }

@@ -79,7 +79,10 @@ export async function moveLibrary(from: string, to: string): Promise<LibrarySumm
   if (!fs.existsSync(source)) throw new MoveError(`No library in ${from}: nothing was copied.`)
   const replacing = fs.existsSync(target)
   if (replacing && !untouched(target)) {
-    throw new MoveError(`${to} already has a library (${describeLibrary(librarySummary(target))}): nothing was copied.`)
+    throw new MoveError(
+      `${to} already has a library (${describeLibrary(librarySummary(target))}): nothing was copied. Binder.app's library ` +
+        'is kept; to use this one instead, quit Binder, move that folder aside, and run pnpm move-library again.',
+    )
   }
   // A killed run's staging is cleared; a failed one clears its own, so an untouched library in `to` stays whole.
   const staging = path.join(to, '.moving')

@@ -71,7 +71,10 @@ describe('moveLibrary (spec §3.2)', () => {
     expect(fs.existsSync(path.join(to, 'backups', 'binder-2026-09-28.db'))).toBe(false)
     // Now it holds a collection: a second move refuses, and changes nothing.
     await expect(moveLibrary(from, to)).rejects.toThrow(
-      new MoveError(`${to} already has a library (7 copies of 2 cards, 1 deck): nothing was copied.`),
+      new MoveError(
+        `${to} already has a library (7 copies of 2 cards, 1 deck): nothing was copied. Binder.app's library is kept; ` +
+          'to use this one instead, quit Binder, move that folder aside, and run pnpm move-library again.',
+      ),
     )
   })
 
