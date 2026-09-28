@@ -178,8 +178,9 @@ function allowPermissions(): void {
   const fakeCamera = app.commandLine.hasSwitch('use-fake-device-for-media-stream')
   session.defaultSession.setPermissionCheckHandler((_contents, permission, origin) => permissionAllowed(permission, origin, appUrl))
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
-    if (!permissionAllowed(permission, details.requestingUrl ?? contents.getURL(), appUrl)) return callback(false)
-    const video = permission === 'media' && 'mediaTypes' in details && (details.mediaTypes ?? []).includes('video')
+    const mediaTypes = 'mediaTypes' in details ? (details.mediaTypes ?? []) : []
+    if (!permissionAllowed(permission, details.requestingUrl ?? contents.getURL(), appUrl, mediaTypes)) return callback(false)
+    const video = permission === 'media' && mediaTypes.includes('video')
     if (!video || fakeCamera) return callback(true)
     void systemPreferences.askForMediaAccess('camera').then(callback, () => callback(false))
   })

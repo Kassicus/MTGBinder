@@ -60,6 +60,10 @@ describe('links', () => {
     for (const permission of ['geolocation', 'notifications', 'clipboard-read']) {
       expect(permissionAllowed(permission, 'http://localhost:4321/decks/3', appUrl)).toBe(false)
     }
+    // The camera, but never the microphone, even asked for with it.
+    expect(permissionAllowed('media', 'http://localhost:4321/scan', appUrl, ['video'])).toBe(true)
+    expect(permissionAllowed('media', 'http://localhost:4321/scan', appUrl, ['audio'])).toBe(false)
+    expect(permissionAllowed('media', 'http://localhost:4321/scan', appUrl, ['video', 'audio'])).toBe(false)
   })
 })
 
