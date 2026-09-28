@@ -7,6 +7,12 @@ export function isAppUrl(url: string, appUrl: string): boolean {
   }
 }
 
+/** Whether a page may use a permission: only Binder's own pages, for the Scan page's camera and the Copy buttons. */
+export function permissionAllowed(permission: string, url: string | undefined, appUrl: string | null): boolean {
+  if (appUrl === null || url === undefined || !isAppUrl(url, appUrl)) return false
+  return permission === 'media' || permission === 'clipboard-sanitized-write'
+}
+
 /** The URL to open in the browser: a web link (Scryfall, a store, a link in Claude's answer), and nothing else. */
 export function externalUrl(url: string): string | null {
   try {

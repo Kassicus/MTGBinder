@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { externalUrl, isAppUrl } from '../../electron/links.ts'
+import { externalUrl, isAppUrl, permissionAllowed } from '../../electron/links.ts'
 import { startingPage, startupFailure } from '../../electron/messages.ts'
 import { appPaths } from '../../electron/paths.ts'
 
@@ -47,6 +47,19 @@ describe('links', () => {
     expect(externalUrl('https://scryfall.com/card/m10/146')).toBe('https://scryfall.com/card/m10/146')
     expect(externalUrl('http://example.com/')).toBe('http://example.com/')
     for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'mailto:me@example.com', 'nonsense']) expect(externalUrl(url)).toBeNull()
+  })
+
+  it('lets Binder\'s own pages use the camera and copy to the clipboard, and nothing else', () => {
+    const appUrl = 'http://localhost:4321'
+    for (const permission of ['media', 'clipboard-sanitized-write']) {
+      expect(permissionAllowed(permission, 'http://localhost:4321/scan', appUrl)).toBe(true)
+      expect(permissionAllowed(permission, 'https://scryfall.com/card/m10/146', appUrl)).toBe(false)
+      expect(permissionAllowed(permission, 'http://localhost:4321/scan', null)).toBe(false)
+      expect(permissionAllowed(permission, undefined, appUrl)).toBe(false)
+    }
+    for (const permission of ['geolocation', 'notifications', 'clipboard-read']) {
+      expect(permissionAllowed(permission, 'http://localhost:4321/decks/3', appUrl)).toBe(false)
+    }
   })
 })
 

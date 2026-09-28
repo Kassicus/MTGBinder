@@ -17,7 +17,7 @@ import {
   type UtilityProcess,
   utilityProcess,
 } from 'electron'
-import { externalUrl, isAppUrl } from './links.ts'
+import { externalUrl, isAppUrl, permissionAllowed } from './links.ts'
 import { startingPage, startupFailure } from './messages.ts'
 import { type AppPaths, appPaths } from './paths.ts'
 import type { ServerMessage } from './server.ts'
@@ -133,15 +133,17 @@ function startServer(): void {
   })
 }
 
-/** The camera is for Binder's own pages (the Scan page), with the Mac's permission, asked for once. */
-function allowCamera(): void {
-  const own = (url: string | undefined) => appUrl !== null && url !== undefined && isAppUrl(url, appUrl)
+/**
+ * Binder's own pages get the camera (the Scan page, with the Mac's permission, asked for once) and clipboard writes
+ * (the Copy buttons); nothing else, and no other page.
+ */
+function allowPermissions(): void {
   // Chromium's fake camera (the end-to-end check's) isn't the Mac's: there's nothing to ask macOS for.
   const fakeCamera = app.commandLine.hasSwitch('use-fake-device-for-media-stream')
-  session.defaultSession.setPermissionCheckHandler((_contents, permission, origin) => permission === 'media' && own(origin))
+  session.defaultSession.setPermissionCheckHandler((_contents, permission, origin) => permissionAllowed(permission, origin, appUrl))
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
-    if (permission !== 'media' || !own(details.requestingUrl ?? contents.getURL())) return callback(false)
-    const video = 'mediaTypes' in details && (details.mediaTypes ?? []).includes('video')
+    if (!permissionAllowed(permission, details.requestingUrl ?? contents.getURL(), appUrl)) return callback(false)
+    const video = permission === 'media' && 'mediaTypes' in details && (details.mediaTypes ?? []).includes('video')
     if (!video || fakeCamera) return callback(true)
     void systemPreferences.askForMediaAccess('camera').then(callback, () => callback(false))
   })
@@ -150,6 +152,8 @@ function allowCamera(): void {
 function buildMenus(): void {
   const template: MenuItemConstructorOptions[] = [
     { role: 'appMenu' },
+    // Close Window (Cmd+W): the window closes, Binder keeps running.
+    { role: 'fileMenu' },
     { role: 'editMenu' },
     {
       label: 'View',
@@ -205,7 +209,7 @@ if (!app.requestSingleInstanceLock()) {
   })
   // No top-level await on whenReady: an ES module entry that awaits it never gets there.
   void app.whenReady().then(() => {
-    allowCamera()
+    allowPermissions()
     buildMenus()
     startServer()
     showWindow()
