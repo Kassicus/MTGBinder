@@ -43,17 +43,51 @@ let status = 'Starting…'
 let window: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
+/**
+ * The server's log for this run. It's never ended: the server's output can still arrive after its process exits, and
+ * Binder's own exit closes the file.
+ */
+let log: fs.WriteStream | null = null
 
-/** The server's log, one file per run, the one before kept beside it. */
+/** The server's log file, one per run, the one before kept beside it as binder.previous.log. */
+const logFile = () => path.join(paths.logDir, 'binder.log')
+
 function openLog(): fs.WriteStream {
   fs.mkdirSync(paths.logDir, { recursive: true })
-  const file = path.join(paths.logDir, 'binder.log')
+  const file = logFile()
   if (fs.existsSync(file)) fs.renameSync(file, path.join(paths.logDir, 'binder.previous.log'))
-  return fs.createWriteStream(file)
+  // Appending (to a file new after the rename), so the stream's writes land after appLog's rather than over them.
+  const stream = fs.createWriteStream(file, { flags: 'a' })
+  // The log is best-effort: a write that fails (a full disk, say) must never throw in the main process.
+  stream.on('error', () => {})
+  return stream
+}
+
+/**
+ * Adds why Binder stops to the log, at once: the dialog that follows holds the main process (and the log's stream)
+ * until Binder quits. Best-effort, like the log.
+ */
+function appLog(message: string): void {
+  try {
+    fs.appendFileSync(logFile(), `[app] ${message}\n`)
+  } catch {
+    // No log to add to: the dialog still says it.
+  }
+}
+
+/**
+ * Loads a page in the window. A newer load replacing one still in flight is expected (the "upgrading" page over
+ * "Starting…", say), and rejects the older one's promise: that's ignored.
+ */
+function load(win: BrowserWindow, url: string): void {
+  win.loadURL(url).catch(() => {})
 }
 
 /** Shows Binder's window, opening it (on Binder's pages, or what it's doing while it starts) if it's closed. */
 function showWindow(): void {
+  // A second launch or a Dock click just before Electron is ready can't open a window yet, and needn't: whenReady
+  // opens it.
+  if (!app.isReady()) return
   if (window) {
     if (window.isMinimized()) window.restore()
     window.show()
@@ -88,46 +122,48 @@ function showWindow(): void {
     const external = externalUrl(url)
     if (external) void shell.openExternal(external)
   })
-  void win.loadURL(appUrl ?? startingPage(status))
+  load(win, appUrl ?? startingPage(status))
 }
 
 /** Says what Binder is doing in a window still waiting for it to start. */
 function setStatus(text: string): void {
   status = text
-  if (window && !appUrl) void window.loadURL(startingPage(text))
+  if (window && !appUrl) load(window, startingPage(text))
 }
 
 /** Stops Binder for good after a message, when it can't start or its server stops. */
 function fail(message: string): void {
   quitting = true
+  appLog(message)
   dialog.showErrorBox("Binder couldn't start", message)
   server?.kill()
   app.exit(1)
 }
 
 function startServer(): void {
-  const log = openLog()
+  log = openLog()
   const child = utilityProcess.fork(path.join(import.meta.dirname, 'server.ts'), [JSON.stringify(paths)], {
     serviceName: 'Binder server',
     stdio: 'pipe',
   })
   server = child
-  child.stdout?.on('data', (chunk: Buffer) => log.write(chunk))
-  child.stderr?.on('data', (chunk: Buffer) => log.write(chunk))
+  child.stdout?.on('data', (chunk: Buffer) => log?.write(chunk))
+  child.stderr?.on('data', (chunk: Buffer) => log?.write(chunk))
   child.on('message', (message: ServerMessage) => {
-    if (message.type === 'log') log.write(`${message.line}\n`)
+    if (message.type === 'log') log?.write(`${message.line}\n`)
     else if (message.type === 'upgrading') setStatus('Backing up your library before upgrading it (a few seconds)…')
     else if (message.type === 'failed') fail(startupFailure(message, paths.port))
     else if (message.type === 'ready') {
       appUrl = message.url
-      if (window) void window.loadURL(message.url)
+      if (window) load(window, message.url)
     }
   })
   child.on('exit', (code) => {
-    log.end()
     if (!quitting) {
       quitting = true
-      dialog.showErrorBox('Binder stopped', `Binder's server stopped unexpectedly (exit ${code}). Open Binder again to restart it.`)
+      const message = `Binder's server stopped unexpectedly (exit ${code}). Open Binder again to restart it.`
+      appLog(message)
+      dialog.showErrorBox('Binder stopped', message)
       app.exit(1)
     }
   })
