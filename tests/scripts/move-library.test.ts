@@ -81,4 +81,47 @@ describe('moveLibrary (spec §3.2)', () => {
       new MoveError(`No library in ${path.join(dir, 'data')}: nothing was copied.`),
     )
   })
+
+  it('changes nothing when the copy fails partway, and a rerun then works', async () => {
+    const dir = scratch()
+    const from = path.join(dir, 'data')
+    const to = path.join(dir, 'Binder')
+    fs.mkdirSync(from)
+    library(from).close()
+    // Binder.app opened before the move: an untouched library, with its own backup.
+    fs.mkdirSync(path.join(to, 'backups'), { recursive: true })
+    const fresh = openDb(path.join(to, 'binder.db'))
+    insertCardRows(fresh, 'cards', fixtureRows())
+    fresh.close()
+    fs.writeFileSync(path.join(to, 'backups', 'binder-2026-09-28.db'), 'empty library backup')
+    // A scan that can't be read makes the folder copy fail after the database is copied, as a full disk or Ctrl+C would.
+    const scan = path.join(from, 'scans', '1.jpg')
+    fs.chmodSync(scan, 0o000)
+    let failure: unknown
+    try {
+      failure = await moveLibrary(from, to).catch((err: unknown) => err)
+    } finally {
+      fs.chmodSync(scan, 0o644)
+    }
+    expect(failure).toBeInstanceOf(MoveError)
+    expect((failure as MoveError).message).toMatch(/^Couldn't copy the library \(.+\): nothing was changed\.$/)
+    expect(librarySummary(path.join(to, 'binder.db'))).toMatchObject({ copies: 0 })
+    expect(fs.existsSync(path.join(to, 'backups', 'binder-2026-09-28.db'))).toBe(true)
+    expect(fs.existsSync(path.join(to, '.moving'))).toBe(false)
+    // Once the scan can be read, the move goes through.
+    expect(await moveLibrary(from, to)).toEqual({ copies: 7, cards: 2, decks: 1, scans: 0, conversations: 0 })
+  })
+
+  it('clears what a killed move left behind', async () => {
+    const dir = scratch()
+    const from = path.join(dir, 'data')
+    const to = path.join(dir, 'Binder')
+    fs.mkdirSync(from)
+    library(from).close()
+    fs.mkdirSync(path.join(to, '.moving'), { recursive: true })
+    fs.writeFileSync(path.join(to, '.moving', 'junk'), 'left by a killed run')
+    expect(await moveLibrary(from, to)).toMatchObject({ copies: 7, decks: 1 })
+    expect(fs.existsSync(path.join(to, '.moving'))).toBe(false)
+    expect(fs.readdirSync(to).sort()).toEqual(['backups', 'binder.db', 'bulk', 'scans'])
+  })
 })

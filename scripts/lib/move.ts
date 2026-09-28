@@ -66,42 +66,58 @@ export function describeLibrary(s: LibrarySummary): string {
 }
 
 /**
- * Copies the library in `from` (the project's data/) to `to` (Binder.app's folder, spec §3.2): the database through
- * SQLite's backup, so it's whole even while its log holds changes, checked before it's put in place; then backups/,
- * bulk/, and scans/. A library already in `to` is left alone, unless nothing was ever added to it (Binder.app opened
- * before the move), which is replaced. `from` is only read. Returns what the copy holds.
+ * Copies the library in `from` (the project's data/) to `to` (Binder.app's folder, spec §3.2). The copy is staged in
+ * `to/.moving` and checked there first: the database through SQLite's backup, so it's whole even while its log holds
+ * changes, then backups/, bulk/, and scans/. Nothing in `to` changes until all of it has checked out; then it's put in
+ * place by renames, the database last, so a move stopped partway leaves no library and the next run starts again. A
+ * library already in `to` is left alone, unless nothing was ever added to it (Binder.app opened before the move), which
+ * is replaced. `from` is only read. Returns what the copy holds.
  */
 export async function moveLibrary(from: string, to: string): Promise<LibrarySummary> {
   const source = libraryPaths(from).dbPath
   const target = libraryPaths(to).dbPath
   if (!fs.existsSync(source)) throw new MoveError(`No library in ${from}: nothing was copied.`)
-  if (fs.existsSync(target)) {
-    if (!untouched(target)) {
-      throw new MoveError(`${to} already has a library (${describeLibrary(librarySummary(target))}): nothing was copied.`)
+  const replacing = fs.existsSync(target)
+  if (replacing && !untouched(target)) {
+    throw new MoveError(`${to} already has a library (${describeLibrary(librarySummary(target))}): nothing was copied.`)
+  }
+  // A killed run's staging is cleared; a failed one clears its own, so an untouched library in `to` stays whole.
+  const staging = path.join(to, '.moving')
+  const staged = libraryPaths(staging).dbPath
+  fs.rmSync(staging, { recursive: true, force: true })
+  try {
+    fs.mkdirSync(staging, { recursive: true })
+    const db = new Database(source, { readonly: true, fileMustExist: true })
+    try {
+      await db.backup(staged)
+    } finally {
+      db.close()
     }
+    const copy = new Database(staged, { fileMustExist: true })
+    const check = copy.pragma('integrity_check', { simple: true })
+    copy.close()
+    if (check !== 'ok') throw new MoveError(`The copy of the library didn't check out (${String(check)}): nothing was copied.`)
+    for (const folder of FOLDERS) {
+      const dir = path.join(from, folder)
+      if (fs.existsSync(dir)) fs.cpSync(dir, path.join(staging, folder), { recursive: true, preserveTimestamps: true })
+    }
+  } catch (err) {
+    fs.rmSync(staging, { recursive: true, force: true })
+    if (err instanceof MoveError) throw err
+    throw new MoveError(`Couldn't copy the library (${err instanceof Error ? err.message : String(err)}): nothing was changed.`)
+  }
+  if (replacing) {
     for (const leftover of [target, `${target}-wal`, `${target}-shm`]) fs.rmSync(leftover, { force: true })
     for (const folder of FOLDERS) fs.rmSync(path.join(to, folder), { recursive: true, force: true })
   }
-  fs.mkdirSync(to, { recursive: true })
-  const partial = `${target}.moving`
-  fs.rmSync(partial, { force: true })
-  const db = new Database(source, { readonly: true, fileMustExist: true })
-  try {
-    await db.backup(partial)
-  } finally {
-    db.close()
-  }
-  const copy = new Database(partial, { fileMustExist: true })
-  const check = copy.pragma('integrity_check', { simple: true })
-  copy.close()
-  if (check !== 'ok') {
-    fs.rmSync(partial, { force: true })
-    throw new MoveError(`The copy of the library didn't check out (${String(check)}): nothing was copied.`)
-  }
-  fs.renameSync(partial, target)
   for (const folder of FOLDERS) {
-    const dir = path.join(from, folder)
-    if (fs.existsSync(dir)) fs.cpSync(dir, path.join(to, folder), { recursive: true, preserveTimestamps: true })
+    const dir = path.join(staging, folder)
+    if (!fs.existsSync(dir)) continue
+    fs.rmSync(path.join(to, folder), { recursive: true, force: true })
+    fs.renameSync(dir, path.join(to, folder))
   }
+  // The database goes in last: until it's there, a move stopped partway leaves no library, so the next run starts again.
+  fs.renameSync(staged, target)
+  fs.rmSync(staging, { recursive: true, force: true })
   return librarySummary(target)
 }
