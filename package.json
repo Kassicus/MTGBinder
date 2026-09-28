@@ -20,7 +20,8 @@
     "typecheck": "tsc -p .",
     "icons": "swift scripts/make-icons.swift build/icons",
     "app:dev": "pnpm icons && vite build && electron .",
-    "app": "node scripts/app.ts"
+    "app": "node scripts/app.ts",
+    "move-library": "node scripts/move-library.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

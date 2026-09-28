@@ -1,6 +1,6 @@
-import { DATA_DIR, ENV_PATH, HOST, OCR_BINARY, OCR_SOURCE, PORT, WEB_DIST_DIR } from './config.ts'
+import { APP_LIBRARY_DIR, DATA_DIR, ENV_PATH, HOST, OCR_BINARY, OCR_SOURCE, PORT, WEB_DIST_DIR } from './config.ts'
 import { startBinder, StartupError } from './start.ts'
-import { portProblem } from './startup.ts'
+import { appLibraryNote, portProblem } from './startup.ts'
 
 // Binder from the terminal (`pnpm start`): the library in data/ (or BINDER_DATA_DIR), the key in the project's .env.
 
@@ -10,6 +10,9 @@ if (badPort) {
   console.error(badPort)
   process.exit(1)
 }
+
+const note = appLibraryNote(DATA_DIR, APP_LIBRARY_DIR)
+if (note) console.log(note)
 
 try {
   await startBinder({

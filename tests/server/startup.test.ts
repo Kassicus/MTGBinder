@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { listenFailure, portProblem } from '../../src/server/startup.ts'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { describe, expect, it, onTestFinished } from 'vitest'
+import { appLibraryNote, listenFailure, portProblem } from '../../src/server/startup.ts'
 
 const failure = (code: string, message = 'boom') => Object.assign(new Error(message), { code })
 
@@ -17,5 +20,17 @@ describe('startup messages', () => {
     )
     expect(listenFailure(failure('EACCES'), 80)).toBe("Binder isn't allowed to listen on port 80. Start it with PORT set to another port.")
     expect(listenFailure(failure('EOTHER', 'the network is down'), 4321)).toBe("Couldn't start the server on port 4321: the network is down")
+  })
+
+  it('says which library this Binder uses when Binder.app keeps its own', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'binder-startup-'))
+    onTestFinished(() => fs.rmSync(dir, { recursive: true, force: true }))
+    const appLibrary = path.join(dir, 'Application Support', 'Binder')
+    const data = path.join(dir, 'data')
+    expect(appLibraryNote(data, appLibrary)).toBeNull()
+    fs.mkdirSync(appLibrary, { recursive: true })
+    fs.writeFileSync(path.join(appLibrary, 'binder.db'), '')
+    expect(appLibraryNote(data, appLibrary)).toBe(`[library] Binder.app keeps its library in ${appLibrary}; this Binder uses ${data}.`)
+    expect(appLibraryNote(appLibrary, appLibrary)).toBeNull()
   })
 })

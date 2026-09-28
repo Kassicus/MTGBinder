@@ -1,3 +1,4 @@
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,3 +27,5 @@ export const OCR_BINARY = path.join(ROOT_DIR, 'bin', 'ocr')
 export const BENCH_DIR = path.join(DATA_DIR, 'bench')
 /** Holds ANTHROPIC_API_KEY, written by the Settings page (spec §3.1). */
 export const ENV_PATH = path.join(ROOT_DIR, '.env')
+/** Binder.app's library (spec §3.2); `pnpm move-library` copies data/ there. */
+export const APP_LIBRARY_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'Binder')
