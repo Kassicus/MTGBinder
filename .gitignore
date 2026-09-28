@@ -10,7 +10,8 @@ data/
 .env
 .env.*
 
-# Scratch workspaces, logs, and OS files
+# Scratch workspaces (and the worktrees Claude Code makes), logs, and OS files
 .superpowers/
+.claude/worktrees/
 *.log
 .DS_Store
