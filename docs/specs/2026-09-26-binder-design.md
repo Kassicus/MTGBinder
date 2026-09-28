@@ -33,15 +33,16 @@ Multi-user, remote or network access, deployment, price history, trade or sale t
 | Recognition | **On-device**: Apple Vision OCR via a Swift helper, matched against the local mirror. Scans it can't settle go to review. Scanning never calls Claude or any other service (the owner's choice, 2026-09-27: the Anthropic API is for deckbuilding help). |
 | Claude model | `claude-opus-5-5` for brainstorm (the owner's choice, 2026-09-27), with server-side refusal fallbacks enabled (`fallbacks: "default"`). |
 | Allocation granularity | By card identity (`oracle_id`), not by physical copy or printing. |
-| Port | `127.0.0.1:4321` (localhost only). |
+| Port | `127.0.0.1:4321` (localhost only), for Binder.app and `pnpm start` alike. |
+| Desktop app | **Binder.app**, an Electron 44 app built on this Mac (`pnpm app`): its own window and a menu-bar icon, the server in Electron's utility process, the library in `~/Library/Application Support/Binder` (the owner's choices, 2026-09-28). `pnpm start` still runs Binder from the terminal on the project's `data/`. |
 
 ## 3. Architecture
 
 ```
-iPhone ──USB (Continuity Camera)──► Mac camera ──► Browser (React SPA)
+iPhone ──USB (Continuity Camera)──► Mac camera ──► Binder.app's window, or a browser (React SPA)
                                                       │  HTTP + SSE
                                                       ▼
-                        Hono server (Node 24) ── SQLite  data/binder.db
+                        Hono server (Node 24) ── SQLite  binder.db (§3.4: Binder.app's, or the project's data/)
                           ├── Scryfall API     (live search, bulk-data download)
                           ├── bin/ocr          (Swift, Apple Vision; persistent child process)
                           └── Anthropic API    (brainstorm)
@@ -58,7 +59,9 @@ binder/
   src/server/             Hono app: routes, db, migrations, scryfall, search compiler, scanner, ai
   src/web/                React SPA
   tests/                  Vitest: unit, integration, fixtures
-  scripts/                ocr-benchmark, fixture fetcher
+  electron/               Binder.app (§3.4): its main process (window, menu-bar icon), the server's process, paths
+  scripts/                ocr-benchmark, fixture fetcher, `pnpm app`, `pnpm move-library`, make-icons.swift
+  build/, release/        the drawn icons, and the packaged Binder.app (generated)
   data/                   binder.db, scans/, bulk/, backups/   (gitignore-style: never hand-edited)
   docs/specs/             this document
 ```
@@ -66,12 +69,24 @@ binder/
 ### 3.2 Commands
 - `pnpm setup`: install dependencies, compile `bin/ocr` with `swiftc`, run migrations, run the first Scryfall bulk import.
 - `pnpm dev`: Vite dev server plus the server (via `tsx watch`), with the Vite proxy forwarding `/api` to the server.
-- `pnpm start`: build the SPA, then serve it and the API from the Hono server at `http://localhost:4321`.
+- `pnpm start`: build the SPA, then serve it and the API from the Hono server at `http://localhost:4321`, on the project's `data/` (saying so when Binder.app keeps its own library).
+- `pnpm app`: build Binder.app and put it in `/Applications` (§3.4); `pnpm app --no-install` leaves it in `release/`.
+- `pnpm app:dev`: Binder.app's window run from the project, on `data/`, without packaging it.
+- `pnpm move-library`: copy the library from `data/` to Binder.app's folder, once (§3.4).
+- `pnpm icons`: draw the app and menu-bar icons into `build/icons/`.
 - `pnpm test`: Vitest.
 - `pnpm ocr:bench`: OCR benchmark (§5.1.6).
 
 ### 3.3 Key dependencies
-`hono`, `@hono/node-server`, `better-sqlite3`, `@anthropic-ai/sdk`, `zod`, `react`, `react-router`, `@tanstack/react-query`, `tailwindcss` v4, `vitest`.
+`hono`, `@hono/node-server`, `better-sqlite3`, `@anthropic-ai/sdk`, `zod`, `react`, `react-router`, `@tanstack/react-query`, `tailwindcss` v4, `vitest`, and for Binder.app `electron` and `electron-builder`. Only the server's packages are runtime dependencies (they're what Binder.app ships); the SPA's are built into it.
+
+### 3.4 Binder.app
+- **The app** (`electron/`): one window onto Binder's pages (at `http://localhost:4321`, as from the terminal), a menu-bar icon (Open Binder, Quit Binder), and Binder's server (`startBinder`, `src/server/start.ts`) in Electron's utility process, so the window and the icon stay responsive while the library does slow work. Closing the window keeps Binder running (scans finish, card data refreshes) and lets go of the camera; the Dock or menu-bar icon opens it again. Cmd+Q or Quit Binder stops the server first (it closes the library; 5 s at most), then the app. One Binder at a time: opening it again brings its window forward. Web links (`http:`, `https:`) open in the browser and other links nowhere; Binder's own pages stay in the window. The menus are Binder, File (Close Window, Cmd+W), Edit, View (reload, zoom, full screen), and Window.
+- **Starting**: until the server listens, the window says "Starting…", or "Backing up your library before upgrading it (a few seconds)…" while a migration's backup is saved (§6 Backups). A library that can't be opened, a port in use, or a `PORT` that isn't a port number is said in a dialog, in the server's one line, and Binder quits; for a port in use, the dialog says Binder may already be running from the terminal. A server that stops unexpectedly is said in a dialog too.
+- **Where things are**: the library is `~/Library/Application Support/Binder` (`binder.db`, `backups/`, `bulk/`, `scans/`, and the API key's `.env`), with the window's own files in its `Electron/` and the server's log in `Logs/binder.log` (the run before in `binder.previous.log`). Run from the project (`pnpm app:dev`), it's the project's `data/`. `BINDER_DATA_DIR` and `PORT` override both, for checks.
+- **Camera and clipboard**: only Binder's own pages may use the camera, with the Mac's permission, asked for once (`NSCameraUsageDescription`), and write to the clipboard (the Copy buttons); every other permission is refused. The app declares Continuity Camera (`NSCameraUseContinuityCameraDeviceType`), which macOS requires before it lists an iPhone to an app. Chromium's fake camera (the end-to-end check's) needs no permission.
+- **Building**: `pnpm app` draws the icons (`scripts/make-icons.swift`: a 9-pocket binder page in stone and amber), builds the SPA and the OCR helper, packages Binder.app with electron-builder (the files as they are, no asar; ad-hoc signed; the OCR helper built in, so the app never needs Xcode's tools; the server's runtime packages only), and replaces `/Applications/Binder.app`, refusing while it runs.
+- **Moving the library** (once): `pnpm move-library` copies `data/` to Binder.app's folder: the database through SQLite's backup (whole even while its log holds changes), checked, and `backups/`, `bulk/`, and `scans/`, all staged in the folder's `.moving/` and put in place (the database last) only once the whole copy has worked; a copy that fails changes nothing, and it can be run again. It refuses while Binder runs, when there's no library to move, or when the folder already holds a library with anything added to it (one Binder.app made before the move, with nothing added, is replaced). `data/` is left as it was, and the key isn't copied: it's entered again in Settings.
 
 ## 4. Data model
 
@@ -334,7 +349,7 @@ Tabs for Built, Prospective, and All. Each deck card shows name, format, status,
 ## 6. Error handling
 - **Scryfall client**: every request sends `User-Agent: Binder/0.1 (personal)` and `Accept: application/json`. A single-flight queue enforces ≥ 100 ms between requests. On 429, back off exponentially (1 s, 2 s, 4 s), and after 3 retries give up and pause the queue for 8 s. The bulk download gives up when no data has come for 60 s (30 minutes at most in all). Network errors are marked `offline` for UI messaging.
 - **Bulk import**: staging table plus atomic swap (§4.2). On failure the old data stays live and `meta.bulk_error` is set and shown in Settings. Offline with card data already here, the error says so ("… The card data from DATE stays in use"), and the start logs why the data is stale ("Card data is 9 days old") before refreshing in the background.
-- **Startup**: a port already in use, or a `PORT` that isn't a port number, prints one line saying so and exits with status 1. Scans a restart interrupted are picked up again only once the server is listening, so a second Binder started while one runs leaves the running one's scans alone.
+- **Startup**: a port already in use, or a `PORT` that isn't a port number, prints one line saying so and exits with status 1 (Binder.app says it in a dialog and quits, §3.4). A library that can't be opened is said the same way, the library left as it was. Scans a restart interrupted are picked up again only once the server is listening, so a second Binder started while one runs leaves the running one's scans alone.
 - **Requests**: only from this computer (the Host header names it), and a request that changes something only from Binder's own page: an `Origin`, when sent, must name the same host and port as the request, and `Sec-Fetch-Site`, when sent, must be `same-origin` or `none`. The dev server's proxy keeps the page's own Host (`changeOrigin: false`), so the rule holds through `pnpm dev` too. Ids in URLs are plain numbers from 1; `0x1`, `1e0`, and `01` are no id (404).
 - **API key file**: the key replaces the first `ANTHROPIC_API_KEY` line in place (keeping an `export`), removing any other; the rest of the file stays. A symlinked `.env` is written through to its target, a hard-linked one in place (made private before the key goes in); otherwise a temporary file is renamed over it. Leftovers of an interrupted write are removed, unless the process that left them is still running. Reading, a quoted value ignores what follows the closing quote, a `# comment` after a value is dropped, and a value starting with `#` is no key. A proxy header setting (`ANTHROPIC_CUSTOM_HEADERS`) can't replace the key's header.
 - **Anthropic**: typed error handling with the SDK's error classes. A refused key (401) says to check it in Settings. Rate limits, overload (529), timeouts, and server errors are retried by the SDK (twice), then shown in the chat with Continue. A `refusal` stop reason (after the fallbacks) is shown as such. A tool call cut off by `max_tokens` is never run; the answer's text is kept and marked as cut off.
@@ -356,7 +371,8 @@ Vitest, test-first for logic modules.
 - **Matcher**: synthetic OCR outputs → decisions (exact set+number, name-only, ambiguous, junk).
 - **Routes**: Hono `app.request()` against an in-memory database seeded from fixtures. Covers collection CRUD, deck CRUD, buy list, library search, and scan item lifecycle (with the OCR client stubbed).
 - **Brainstorm**: a local fake of the Messages API (`tests/helpers/fake-anthropic.ts`) streams scripted answers in the wire format the SDK parses, so the chat loop, the tools, and the routes are tested without a key or any call to Anthropic.
-- **Manual**: the scanner end-to-end with the iPhone, and brainstorm with a real key.
+- **Binder.app**: its paths, links, and messages are unit-tested, as are `startBinder` and the library move; the packaged app is checked end to end on a copy of the library with Chromium's fake camera (the M9 plan's Task 5): its window, auto mode through the OCR helper inside it, closing and opening it again, and quitting.
+- **Manual**: the scanner end-to-end with the iPhone (in Binder.app too), and brainstorm with a real key.
 
 ## 8. Build milestones
 Each milestone ends with a working app.
@@ -368,5 +384,6 @@ Each milestone ends with a working app.
 6. **Brainstorm**: threads, streaming chat, tools, save-to-deck.
 7. **Deck scanning and polish**: scanning into a deck, the Settings backups section, and the fixes first use asked for.
 8. **Polish**: the follow-ups left in `docs/plans/m*-followups.md`, empty states, keyboard shortcuts.
+9. **Binder.app**: a Mac app with its own window and menu-bar icon, and the library in Application Support (§3.4).
 
 Implementation plans are written per milestone.

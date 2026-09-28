@@ -1,6 +1,7 @@
 # Binder
 
-Personal MTG collection manager. Runs locally at http://localhost:4321.
+Personal MTG collection manager for this Mac: open Binder.app, or run `pnpm start` in a terminal. Either way it's at
+http://localhost:4321.
 
 ## First run
 
@@ -12,6 +13,33 @@ pnpm start          # builds the UI and serves everything at http://localhost:43
 
 With an empty collection, **Look up** shows three ways to start: scan your cards, import a CSV, or scan or build a
 deck. Press `?` (anywhere but a text box or dropdown) for the keyboard shortcuts.
+
+## Binder.app
+
+Binder also comes as a Mac app, with its own window and a menu-bar icon. Build it and put it in Applications with:
+
+```bash
+pnpm app            # draws the icons, builds the UI and the OCR helper, packages Binder.app, installs it
+```
+
+The first time, move your library into it, with Binder quit:
+
+```bash
+pnpm move-library   # copies data/ to ~/Library/Application Support/Binder; data/ is left as it was
+```
+
+Then open Binder from Spotlight, Launchpad, or Applications, and enter your Anthropic API key again in Settings (it
+isn't copied). Closing the window keeps Binder running in the menu bar, so scans finish and card data refreshes;
+click the menu-bar icon (or the Dock icon) to open it again, and **Quit Binder** there, or Cmd+Q, to stop it. Opening
+Binder again while it runs brings its window forward, and links to Scryfall and other sites open in your browser.
+The first time you open Scan, macOS asks whether Binder may use the camera; your iPhone appears through Continuity
+Camera as it does in a browser. Binder.app is signed on this Mac, not by a developer account, so macOS may ask
+again after an update.
+
+Binder.app keeps everything in `~/Library/Application Support/Binder`: the library, its backups and card data, the
+key, its window's own files (`Electron/`), and the server's log (`Logs/binder.log`, the run before in
+`binder.previous.log`). To update it, quit Binder and run `pnpm app` again. `pnpm start` still runs Binder from the
+terminal on the project's `data/`, and says so when Binder.app keeps its own library.
 
 ## Searching
 
@@ -113,6 +141,8 @@ dropdown, instead of opening it.)
 
 ```bash
 pnpm dev            # API on :4321 (auto-restarts) + Vite on http://localhost:5173
+pnpm app:dev        # Binder.app's window, run from the project on data/ (no packaging)
+pnpm app --no-install   # packages Binder.app into release/ without installing it
 pnpm test           # unit and integration tests
 pnpm typecheck
 ```
@@ -125,8 +155,9 @@ Settings → Backups shows the last backup and the folder, and **Back up now** s
 exists it saves an extra copy; the newest 3 extra copies are kept, apart from the daily 7).
 Before a Binder update changes the database's structure, it also saves `binder-YYYY-MM-DD-before-NNN.db` there (the
 newest 3 are kept); if it can't, it doesn't start, and the database is left as it was.
-To restore a backup, stop Binder and copy it over `data/binder.db` (deleting `binder.db-wal` and
-`binder.db-shm`). Set `BINDER_DATA_DIR` to use a different folder.
+To restore a backup, stop Binder and copy it over `data/binder.db` (Binder.app's is
+`~/Library/Application Support/Binder/binder.db`), deleting `binder.db-wal` and `binder.db-shm`. Set
+`BINDER_DATA_DIR` to use a different folder.
 Replacing card data leaves unused space inside `data/binder.db`; Settings → Library file shows how much (its size
 also counts the log beside the file), and **Compact the library** gives it back (after a backup).
 If port 4321 is taken (Binder may already be running), start with `PORT=4322 pnpm start`.
