@@ -33,8 +33,10 @@ isn't copied). Closing the window keeps Binder running in the menu bar, so scans
 click the menu-bar icon (or the Dock icon) to open it again, and **Quit Binder** there, or Cmd+Q, to stop it. Opening
 Binder again while it runs brings its window forward, and links to Scryfall and other sites open in your browser.
 The first time you open Scan, macOS asks whether Binder may use the camera; your iPhone appears through Continuity
-Camera as it does in a browser. Binder.app is signed on this Mac, not by a developer account, so macOS may ask
-again after an update.
+Camera as it does in a browser. If it's refused (by mistake, or after an update), turn Binder on in System Settings →
+Privacy & Security → Camera, then quit and reopen Binder; if its switch is already on and the camera still won't
+start, clear the old permission with `tccutil reset Camera local.binder.app` in Terminal, then reopen Binder.
+Binder.app is signed on this Mac, not by a developer account, so macOS may ask again after an update.
 
 Binder.app keeps everything in `~/Library/Application Support/Binder`: the library, its backups and card data, the
 key, its window's own files (`Electron/`), and the server's log (`Logs/binder.log`, the run before in

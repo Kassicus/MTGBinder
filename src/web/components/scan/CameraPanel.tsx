@@ -43,9 +43,22 @@ const store = (key: string, value: string) => {
   }
 }
 
-function describeCameraError(err: unknown): string {
+/**
+ * Whether the page runs in Binder.app, whose window names Electron in its user agent. It has no address bar, and once
+ * macOS has recorded a refused camera it doesn't ask again: only System Settings turns the camera back on.
+ */
+export function inBinderApp(userAgent: string): boolean {
+  return userAgent.includes('Electron/')
+}
+
+/** Why the camera didn't start, and what to do about it where the page runs (`navigator.userAgent`). */
+export function describeCameraError(err: unknown, userAgent: string): string {
   const name = err instanceof DOMException ? err.name : ''
-  if (name === 'NotAllowedError') return "Binder isn't allowed to use the camera. Allow it from the camera icon in the address bar, then press Start it again."
+  if (name === 'NotAllowedError') {
+    return inBinderApp(userAgent)
+      ? "Binder isn't allowed to use the camera. Turn Binder on in System Settings → Privacy & Security → Camera, then quit and reopen Binder."
+      : "Binder isn't allowed to use the camera. Allow it from the camera icon in the address bar, then press Start it again."
+  }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No camera found.'
   if (name === 'NotReadableError') return 'The camera is in use by another app.'
   return `Couldn't start the camera: ${err instanceof Error ? err.message : String(err)}`
@@ -153,7 +166,7 @@ export function CameraPanel({ onCapture }: { onCapture: (jpeg: Blob, auto: boole
         }
         setDevices(all)
       } catch (err) {
-        if (!cancelled) setError(describeCameraError(err))
+        if (!cancelled) setError(describeCameraError(err, navigator.userAgent))
       }
     }
     void list()
@@ -197,7 +210,7 @@ export function CameraPanel({ onCapture }: { onCapture: (jpeg: Blob, auto: boole
       })
       .catch((err: unknown) => {
         // A camera switched away from while it was starting isn't this one's problem.
-        if (!cancelled) setError(describeCameraError(err))
+        if (!cancelled) setError(describeCameraError(err, navigator.userAgent))
       })
     return () => {
       cancelled = true
