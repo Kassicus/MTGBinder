@@ -134,7 +134,7 @@ describe('parseSearch: errors point at the problem', () => {
     ['m:{foo}', 'Can\'t read the mana cost "{foo}"; try m:{2}{W}{W} or m:2WW', 'm:{foo}'],
     ['s:!!', '"!!" isn\'t a set code; codes look like dmu or m21', 's:!!'],
     ['o<flying', '"o<" isn\'t supported; use o:', 'o<flying'],
-    ['is:shiny', 'Unknown is: value "shiny"; try commander, permanent, spell, dfc, split, promo, foil, nonfoil, etched, wanted', 'is:shiny'],
+    ['is:shiny', 'Unknown is: value "shiny"; try commander, permanent, spell, dfc, split, promo, foil, nonfoil, etched, wanted, unpriced', 'is:shiny'],
     ['!', '"!" needs a card name after it', '!'],
   ])('rejects %s', (query, message, at) => {
     expect(failure(query)).toEqual({ message, at })

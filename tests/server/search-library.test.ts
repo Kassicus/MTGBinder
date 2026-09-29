@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { scryfallToRow, type CardRow } from '../../src/server/cards/map.ts'
 import { insertCardRows } from '../../src/server/cards/repo.ts'
+import { collectionStats } from '../../src/server/collection/repo.ts'
 import type { DB } from '../../src/server/db/index.ts'
 import { getOwnership } from '../../src/server/ownership/repo.ts'
 import { compileFilter } from '../../src/server/search/compile.ts'
@@ -213,6 +214,35 @@ describe('searchLibrary', () => {
   it('combines ownership keys with other terms', () => {
     expect(names('free<0 or t:creature')).toEqual(["Atraxa, Praetors' Voice", 'Lightning Bolt', 'Llanowar Elves'])
     expect(names('-qty>=3')).toEqual(["Atraxa, Praetors' Voice", 'Sol Ring'])
+  })
+
+  it('is:unpriced finds the copies whose own finish has no price, the ones the library value counts as unpriced', () => {
+    const lib = createTestDb()
+    const prices = fixtureCard('Grizzly Bears').prices
+    // No foil price, like a printing Scryfall prices only in nonfoil; and no price at all.
+    const noFoilPrice = scryfallToRow(syntheticCard({ name: 'Foilless Bear', finishes: ['nonfoil', 'foil'], prices: { ...prices, usd: '0.20', usd_foil: null } })) as CardRow
+    const noPrice = scryfallToRow(syntheticCard({ name: 'Priceless Bear', prices: { ...prices, usd: null, usd_foil: null, usd_etched: null } })) as CardRow
+    insertCardRows(lib, 'cards', [noFoilPrice, noPrice])
+    const add = lib.prepare("INSERT INTO collection (card_id, finish, quantity, added_at, updated_at) VALUES (?, ?, ?, 't', 't')")
+    add.run(noFoilPrice.id, 'foil', 2)
+    add.run(noFoilPrice.id, 'nonfoil', 3)
+    add.run(noPrice.id, 'nonfoil', 1)
+    own(lib, 'Counterspell', undefined, 1)
+    const page = searchLibrary(lib, { q: 'is:unpriced', view: 'printings', sort: 'name', dir: 'asc', page: 1 })
+    expect(page.cards.map((c) => [c.name, c.finish, c.quantity, c.priceUsd])).toEqual([
+      ['Foilless Bear', 'foil', 2, null],
+      ['Priceless Bear', 'nonfoil', 1, null],
+    ])
+    expect(collectionStats(lib).unpricedCards).toBe(3)
+    // The cards view shows the unpriced row, not the bear's nonfoil row with more copies.
+    expect(searchLibrary(lib, { q: 'is:unpriced', view: 'cards', sort: 'name', dir: 'asc', page: 1 }).cards.map((c) => [c.name, c.finish, c.quantity])).toEqual([
+      ['Foilless Bear', 'foil', 2],
+      ['Priceless Bear', 'nonfoil', 1],
+    ])
+    expect(searchLibrary(lib, { q: '-is:unpriced', view: 'printings', sort: 'name', dir: 'asc', page: 1 }).cards.map((c) => [c.name, c.finish])).toEqual([
+      ['Counterspell', 'nonfoil'],
+      ['Foilless Bear', 'nonfoil'],
+    ])
   })
 
   it('sorts names without regard to letter case', () => {

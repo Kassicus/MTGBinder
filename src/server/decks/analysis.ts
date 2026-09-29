@@ -92,7 +92,7 @@ interface Analysis {
 /**
  * Ownership, prices, statuses, completion, buy list, and format warnings for one deck (spec §4.3, §4.4). `scanned`:
  * the copies scans added to it, by "<board>/<oracle id>" (see scannedIntoDeck). A line whose card is gone from the
- * card data counts toward the deck's size, but not its cost or completion.
+ * card data counts toward the deck's size, but not its cost or completion, and its copies have no price.
  */
 function analyze(
   deck: DeckRow,
@@ -188,6 +188,9 @@ function analyze(
   items.sort((a, b) => a.name.localeCompare(b.name))
   const totalCents = items.reduce((sum, i) => sum + (i.priceUsd === null ? 0 : Math.round(i.priceUsd * 100) * i.quantity), 0)
   const unpriced = items.reduce((sum, i) => sum + (i.priceUsd === null ? i.quantity : 0), 0)
+  // The whole deck, owned or not, at each line's price; a line whose card is gone has none.
+  const valued = lines.filter((l) => l.board !== 'maybe')
+  const valueCents = valued.reduce((sum, l) => sum + (l.priceUsd === null ? 0 : Math.round(l.priceUsd * 100) * l.quantity), 0)
 
   const commanders = rows.filter((r) => r.board === 'commander')
   const identitySource = deck.format === 'commander' && commanders.length > 0 ? commanders : rows.filter((r) => r.board !== 'maybe')
@@ -206,6 +209,8 @@ function analyze(
       completion: counted === 0 ? 1 : available / counted,
       costToFinish: totalCents / 100,
       unpricedToBuy: unpriced,
+      valueUsd: valueCents / 100,
+      unpricedCards: valued.reduce((sum, l) => sum + (l.priceUsd === null ? l.quantity : 0), 0),
       colorIdentity: canonColors(identitySource.flatMap((r) => [...r.color_identity])),
     },
     lines,

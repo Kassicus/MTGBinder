@@ -61,8 +61,8 @@ export function writeSearchState(state: SearchState, locked?: SearchScope): URLS
 }
 
 /**
- * The library-only terms in a query (`in:`, `free`, `qty`, `is:wanted`), once each, for the hint that All cards
- * (Scryfall) reads them its own way. None for a query the local parser can't read.
+ * The library-only terms in a query (`in:`, `free`, `qty`, `is:wanted`, `is:unpriced`), once each, for the hint that
+ * All cards (Scryfall) reads them its own way. None for a query the local parser can't read.
  */
 export function libraryOnlyTerms(q: string): string[] {
   const parsed = parseSearch(q)
@@ -72,7 +72,7 @@ export function libraryOnlyTerms(q: string): string[] {
     if (node.kind === 'and' || node.kind === 'or') node.children.forEach(walk)
     else if (node.kind === 'not') walk(node.child)
     else if (node.kind === 'field' && (node.key === 'in' || node.key === 'free' || node.key === 'qty')) found.add(node.key === 'in' ? 'in:' : node.key)
-    else if (node.kind === 'field' && node.key === 'is' && node.value === 'wanted') found.add('is:wanted')
+    else if (node.kind === 'field' && node.key === 'is' && (node.value === 'wanted' || node.value === 'unpriced')) found.add(`is:${node.value}`)
   }
   walk(parsed.ast)
   return [...found]

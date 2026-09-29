@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import type { CollectionStats } from '../../shared/types.ts'
 import { ImportPanel } from '../components/library/ImportPanel.tsx'
 import { apiGet } from '../lib/api.ts'
 import { formatDate, formatUsd } from '../lib/format.ts'
+import { readSearchState, writeSearchState } from '../lib/search-state.ts'
 import { SearchView } from './SearchPage.tsx'
 
 /** My library: totals, CSV import and export, and search locked to the collection (spec §5.2, §5.3). */
@@ -30,7 +31,7 @@ export function LibraryPage() {
         <div className="space-y-2">
           <h1 className="font-serif text-3xl font-semibold text-stone-50">Library</h1>
           {stats.data ? (
-            <StatsLine stats={stats.data} />
+            <StatsLine stats={stats.data} unpricedSearch={unpricedSearch(search)} />
           ) : stats.error ? (
             <p className="text-sm text-rose-300">Couldn't load library totals: {stats.error.message}</p>
           ) : (
@@ -60,7 +61,16 @@ export function LibraryPage() {
   )
 }
 
-function StatsLine({ stats }: { stats: CollectionStats }) {
+/**
+ * The search for the library's copies with no price (what its value leaves out), each printing and finish on its own
+ * row, keeping the current layout and sort.
+ */
+function unpricedSearch(search: string): string {
+  const current = readSearchState(new URLSearchParams(search), 'library')
+  return `?${writeSearchState({ ...current, q: 'is:unpriced', view: 'printings', page: 1 }, 'library')}`
+}
+
+function StatsLine({ stats, unpricedSearch }: { stats: CollectionStats; unpricedSearch: string }) {
   const items: Array<[string, string]> = [
     ['Cards', stats.totalCards.toLocaleString()],
     ['Unique', stats.uniqueCards.toLocaleString()],
@@ -75,7 +85,12 @@ function StatsLine({ stats }: { stats: CollectionStats }) {
           <dd className="text-stone-100 tabular-nums">
             {value}
             {label === 'Value' && stats.unpricedCards > 0 && (
-              <span className="ml-1 text-xs text-stone-500">({stats.unpricedCards.toLocaleString()} without a price)</span>
+              <Link
+                to={{ search: unpricedSearch }}
+                className="ml-1 text-xs text-stone-500 underline decoration-stone-600 underline-offset-2 hover:text-amber-300 hover:decoration-amber-300"
+              >
+                ({stats.unpricedCards.toLocaleString()} without a price)
+              </Link>
             )}
           </dd>
         </div>

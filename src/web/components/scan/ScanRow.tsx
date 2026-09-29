@@ -5,6 +5,7 @@ import { apiGet } from '../../lib/api.ts'
 import { useCardDrawer } from '../../lib/card-drawer.tsx'
 import { BOARD_LABEL, useDecks } from '../../lib/decks.ts'
 import { useDiscardScan, useEditScan, useRetryScan } from '../../lib/scan.ts'
+import { scanPriceLabel } from '../../lib/scan-queue.ts'
 import { useDebounced } from '../../lib/use-debounced.ts'
 import { TargetPicker } from './ScanTarget.tsx'
 
@@ -141,9 +142,9 @@ function ScanRowTarget({ item }: { item: ScanItem }) {
 }
 
 /**
- * One scan in the queue (spec §5.1.3): the capture next to Scryfall's image, what it was identified as, where it goes,
- * and the controls to correct the printing, finish, and quantity, confirm it, pick another card (any review row), or
- * discard it. A mark says when auto mode may have captured this card twice.
+ * One scan in the queue (spec §5.1.3): the capture next to Scryfall's image, what it was identified as and what a copy
+ * costs, where it goes, and the controls to correct the printing, finish, and quantity, confirm it, pick another card
+ * (any review row), or discard it. A mark says when auto mode may have captured this card twice.
  */
 export function ScanRow({ item }: { item: ScanItem }) {
   const edit = useEditScan(item.id)
@@ -153,6 +154,7 @@ export function ScanRow({ item }: { item: ScanItem }) {
   const [picking, setPicking] = useState(false)
   const busy = item.status === 'queued' || item.status === 'identifying'
   const card = item.card
+  const price = scanPriceLabel(item)
   const pick = (cardId: string) => edit.mutate({ cardId }, { onSuccess: () => setPicking(false) })
   return (
     <li className="flex gap-3 py-3">
@@ -174,7 +176,8 @@ export function ScanRow({ item }: { item: ScanItem }) {
             )}
             {card && (
               <p className="text-xs text-stone-500">
-                {card.setName} · {card.setCode.toUpperCase()} #{card.collectorNumber}
+                {card.setName} · {card.setCode.toUpperCase()} #{card.collectorNumber} ·{' '}
+                <span className={price === 'no price' ? '' : 'text-stone-300 tabular-nums'}>{price}</span>
               </p>
             )}
           </div>

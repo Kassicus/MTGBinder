@@ -73,6 +73,7 @@ describe('search examples', () => {
 describe('library-only terms', () => {
   it('finds each one once, wherever it is in the query', () => {
     expect(libraryOnlyTerms('t:elf in:deck free>0 -(qty>=2 or is:wanted) in:built')).toEqual(['in:', 'free', 'qty', 'is:wanted'])
+    expect(libraryOnlyTerms('is:unpriced or is:unpriced t:elf')).toEqual(['is:unpriced'])
     expect(libraryOnlyTerms('t:elf is:commander')).toEqual([])
     expect(libraryOnlyTerms('in:deck (')).toEqual([])
   })

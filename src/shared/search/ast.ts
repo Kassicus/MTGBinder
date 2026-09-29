@@ -30,4 +30,4 @@ export type ParseResult = { ok: true; ast: SearchNode } | { ok: false; error: Se
 
 export const RARITIES = ['common', 'uncommon', 'rare', 'mythic', 'special', 'bonus'] as const
 
-export const IS_VALUES = ['commander', 'permanent', 'spell', 'dfc', 'split', 'promo', 'foil', 'nonfoil', 'etched', 'wanted'] as const
+export const IS_VALUES = ['commander', 'permanent', 'spell', 'dfc', 'split', 'promo', 'foil', 'nonfoil', 'etched', 'wanted', 'unpriced'] as const

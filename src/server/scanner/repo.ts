@@ -11,6 +11,7 @@ import type {
   ScanStatus,
   ScanTarget,
 } from '../../shared/types.ts'
+import { parsePrices } from '../cards/repo.ts'
 import { adjustCopies } from '../collection/repo.ts'
 import type { DB } from '../db/index.ts'
 import { addToDeck } from '../decks/repo.ts'
@@ -47,6 +48,7 @@ interface CardRow {
   collector_number: string
   image_small: string | null
   finishes: string
+  prices: string
 }
 
 /** Scans still in the queue (spec §5.1.3); committed and discarded ones are done with. */
@@ -86,7 +88,7 @@ function isSameCardAsBefore(db: DB, row: ScanRow): boolean {
 
 function toItem(db: DB, row: ScanRow): ScanItem {
   const cardById = db.prepare(
-    'SELECT id, oracle_id, name, set_code, set_name, collector_number, image_small, finishes FROM cards WHERE id = ?',
+    'SELECT id, oracle_id, name, set_code, set_name, collector_number, image_small, finishes, prices FROM cards WHERE id = ?',
   )
   const c = row.card_id ? (cardById.get(row.card_id) as CardRow | undefined) : undefined
   const card: ScanCard | null = c
@@ -99,6 +101,7 @@ function toItem(db: DB, row: ScanRow): ScanItem {
         collectorNumber: c.collector_number,
         imageSmall: c.image_small,
         finishes: JSON.parse(c.finishes) as Finish[],
+        prices: parsePrices(c.prices),
       }
     : null
   const stored = JSON.parse(row.candidates) as Array<{ card_id: string; score: number }>

@@ -12,6 +12,7 @@ import {
   shortCards,
   statusLabel,
   typeCounts,
+  valueLabel,
   warningCount,
 } from '../../src/web/lib/deck-view.ts'
 
@@ -175,5 +176,11 @@ describe('status, warnings, scanning, and cost in words', () => {
     expect(costLabel({ costToFinish: 12.5, unpricedToBuy: 2 })).toBe('$12.50 to finish, and 2 cards without a price')
     expect(costLabel({ costToFinish: 0, unpricedToBuy: 1 })).toBe('1 card to buy, without a price')
     expect(costLabel({ costToFinish: 0, unpricedToBuy: 0 })).toBe('Nothing to buy')
+  })
+
+  it('says what the whole deck costs, and when some cards have no price', () => {
+    expect(valueLabel({ valueUsd: 412.5, unpricedCards: 0 })).toBe('$412.50 total')
+    expect(valueLabel({ valueUsd: 1234.5, unpricedCards: 2 })).toBe('$1,234.50 total (2 cards without a price)')
+    expect(valueLabel({ valueUsd: 0, unpricedCards: 1 })).toBe('$0.00 total (1 card without a price)')
   })
 })

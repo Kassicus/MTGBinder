@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { MAX_COMMIT_IDS } from '../../src/server/scanner/routes.ts'
 import type { ScanItem, ScanTarget } from '../../src/shared/types.ts'
 import { boardOnDeck, captureQuery, chosenDeck, freshTarget, parseTarget, TARGET_TTL_MS } from '../../src/web/lib/scan.ts'
-import { addLabel, autoAddedToast, commitInChunks, commitToast, COMMIT_CHUNK_SIZE, sentAllToast, skippedNote } from '../../src/web/lib/scan-queue.ts'
+import {
+  addLabel,
+  autoAddedToast,
+  commitInChunks,
+  commitToast,
+  COMMIT_CHUNK_SIZE,
+  scanPriceLabel,
+  sentAllToast,
+  skippedNote,
+} from '../../src/web/lib/scan-queue.ts'
 
 /** Each deck name the tests use has its own id. */
 const deckIds = new Map<string, number>()
@@ -28,7 +37,8 @@ function scan(id: number, auto: boolean, printing: string | null, quantity = 1, 
           setName: 'Synthetic',
           collectorNumber: printing,
           imageSmall: null,
-          finishes: ['nonfoil'],
+          finishes: ['nonfoil', 'foil', 'etched'],
+          prices: { usd: 0.71, usdFoil: 2.5, usdEtched: null },
         }
       : null,
     finish: 'nonfoil',
@@ -52,6 +62,16 @@ describe('addLabel', () => {
     // Two decks whose names are the same length are still two decks.
     expect(addLabel([scan(1, false, 'a', 1, 'Burn'), scan(2, false, 'b', 1, 'Tron')])).toBe('Add 2 cards (2 also to 2 decks)')
     expect(addLabel([])).toBe('Add 0 cards to collection')
+  })
+})
+
+describe('scanPriceLabel', () => {
+  it("prices a scan by its printing's price in the chosen finish, per copy", () => {
+    expect(scanPriceLabel(scan(1, false, 'a'))).toBe('$0.71')
+    expect(scanPriceLabel({ ...scan(1, false, 'a'), finish: 'foil' })).toBe('$2.50')
+    expect(scanPriceLabel(scan(1, false, 'a', 3))).toBe('$0.71 each')
+    expect(scanPriceLabel({ ...scan(1, false, 'a'), finish: 'etched' })).toBe('no price')
+    expect(scanPriceLabel(scan(1, false, null))).toBeNull()
   })
 })
 

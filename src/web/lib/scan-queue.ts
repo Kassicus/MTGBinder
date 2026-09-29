@@ -1,6 +1,7 @@
+import { finishPrice } from '../../shared/prices.ts'
 import type { AutoAddedScan, ScanBoard, ScanCommitResult, ScanItem } from '../../shared/types.ts'
 import { BOARD_LABEL } from './decks.ts'
-import { plural } from './format.ts'
+import { formatUsd, plural } from './format.ts'
 
 /** "a", "a and b", "a, b and c". */
 function joinAnd(parts: readonly string[]): string {
@@ -19,6 +20,17 @@ export function addLabel(ready: readonly ScanItem[]): string {
   const names = new Set(toDecks.map((i) => i.target!.deckId))
   const where = names.size === 1 ? toDecks[0]!.target!.deckName : `${names.size} decks`
   return `Add ${plural(copies, 'card')} (${deckCopies} also to ${where})`
+}
+
+/**
+ * What one scanned copy costs: its printing's price in the chosen finish ("$0.71", "$0.71 each" for several copies,
+ * "no price"), or null before the scan has a card.
+ */
+export function scanPriceLabel(item: Pick<ScanItem, 'card' | 'finish' | 'quantity'>): string | null {
+  if (!item.card) return null
+  const usd = finishPrice(item.card.prices, item.finish)
+  if (usd === null) return 'no price'
+  return item.quantity > 1 ? `${formatUsd(usd)} each` : formatUsd(usd)
 }
 
 /** The most scans one commit request can name: `POST /api/scan/commit` refuses more (MAX_COMMIT_IDS). */

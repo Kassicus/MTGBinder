@@ -4,7 +4,7 @@ import { FORMAT_IDS, FORMATS } from '../../../shared/formats.ts'
 import type { DeckDetail, DeckStatus, DeckSummary, FormatId } from '../../../shared/types.ts'
 import { apiSend } from '../../lib/api.ts'
 import { useCreateThread } from '../../lib/brainstorm.ts'
-import { completionPercent, costLabel, scannedProgress, shortCards, warningCount } from '../../lib/deck-view.ts'
+import { completionPercent, costLabel, scannedProgress, shortCards, valueLabel, warningCount } from '../../lib/deck-view.ts'
 import { BOARD_LABEL, BOARD_ORDER, useDeckChange } from '../../lib/decks.ts'
 import { plural } from '../../lib/format.ts'
 import { ColorPips } from './ColorPips.tsx'
@@ -127,6 +127,7 @@ export function DeckHeader({ deck, onShowWarnings }: { deck: DeckDetail; onShowW
             <span className="text-stone-100 tabular-nums">{completionPercent(deck.completion)}%</span> complete
           </span>
         )}
+        {!empty && <span>{valueLabel(deck)}</span>}
         {!empty && <span>{costLabel(deck)}</span>}
         {scanned && (
           <span>

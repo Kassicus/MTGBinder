@@ -149,6 +149,23 @@ describe('deck summary and buy list', () => {
     expect(deckSummary(db, burn)).toMatchObject({ cardCount: 4, completion: 0.75, costToFinish: 1.04, colorIdentity: 'R' })
   })
 
+  it('values the whole deck, owned or not, at each line\'s price, leaving out the maybe board', () => {
+    expect(deckSummary(db, idea)).toMatchObject({
+      valueUsd: 63.04, // Atraxa 27.99 + Sol Ring 1.66 (owned) + Bolt 1.04 + Doubling Season 32.35; not the 2 maybe Bolts
+      unpricedCards: 0,
+    })
+    expect(deckSummary(db, burn)).toMatchObject({ valueUsd: 4.16, unpricedCards: 0 }) // 4 Bolt at 1.04, all owned
+  })
+
+  it('values basic lands even while the buy list leaves them out, every board\'s copies, and counts copies with no price separately', () => {
+    inDeck(db, idea, 'Forest', 10)
+    inDeck(db, idea, 'Command Tower', 2, 'side')
+    inDeck(db, idea, 'Command Tower', 1, 'maybe')
+    inDeck(db, idea, 'Sol Ring', 1, 'side')
+    // 63.04 + 10 Forest at 0.19 + a second Sol Ring, on the sideboard, at 1.66
+    expect(deckSummary(db, idea)).toMatchObject({ valueUsd: 66.6, unpricedCards: 2 })
+  })
+
   it('lists what to buy, cheapest printing first, leaving out the maybe board', () => {
     expect(detail(idea).buyList).toEqual({
       items: [
@@ -178,19 +195,19 @@ describe('deck summary and buy list', () => {
     expect(detail(idea).buyList).toMatchObject({ totalUsd: 61.38, unpriced: 1 })
   })
 
-  it('keeps a line whose card is gone from the card data: it counts toward the size, not the cost, and can be removed', () => {
+  it('keeps a line whose card is gone from the card data: it counts toward the size, has no price, and can be removed', () => {
     // Scryfall re-keyed the card: the line's identity is in no card any more.
     db.prepare("UPDATE deck_cards SET oracle_id = 'gone-from-the-card-data' WHERE deck_id = ?").run(burn)
     const d = detail(burn)
     expect(d.lines).toMatchObject([{ name: MISSING_CARD_NAME, cardId: '', quantity: 4, priceUsd: null, warnings: [MISSING_CARD_WARNING] }])
-    expect([d.cardCount, d.completion, d.buyList.items, d.costToFinish]).toEqual([4, 1, [], 0])
+    expect([d.cardCount, d.completion, d.buyList.items, d.costToFinish, d.valueUsd, d.unpricedCards]).toEqual([4, 1, [], 0, 0, 4])
     expect(deckSummaries(db).find((s) => s.id === burn)?.cardCount).toBe(4)
     expect(removeLine(db, burn, d.lines[0]!.id)).toBe(true)
     expect(detail(burn).lines).toEqual([])
   })
 
   it('an empty deck is complete and costs nothing', () => {
-    expect(deckSummary(db, deck(db, 'Empty', 'prospective', 'casual'))).toMatchObject({ cardCount: 0, completion: 1, costToFinish: 0, colorIdentity: '' })
+    expect(deckSummary(db, deck(db, 'Empty', 'prospective', 'casual'))).toMatchObject({ cardCount: 0, completion: 1, costToFinish: 0, valueUsd: 0, unpricedCards: 0, colorIdentity: '' })
   })
 
   it('summarizes every deck the same way as one at a time, by name', () => {

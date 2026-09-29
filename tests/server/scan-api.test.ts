@@ -283,6 +283,13 @@ describe('the queue', () => {
     expect(moved.finish).toBe('nonfoil')
   })
 
+  it("carries the scanned printing's prices, which follow a corrected printing", async () => {
+    const item = await scan('bolt-m11')
+    expect(item.card?.prices).toEqual({ usd: 1.04, usdFoil: 6.68, usdEtched: null })
+    const moved = await body<ScanItem>(await send('PATCH', `/api/scan/items/${item.id}`, { cardId: fixtureCard('Lightning Bolt', 'm10').id }))
+    expect(moved.card?.prices).toEqual({ usd: 1.89, usdFoil: 12.69, usdEtched: null })
+  })
+
   it('refuses edits it cannot make', async () => {
     const unsure = await scan('mystery')
     expect(await code(await send('PATCH', `/api/scan/items/${unsure.id}`, { confirm: true }))).toEqual([400, 'no_card'])

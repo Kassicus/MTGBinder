@@ -48,7 +48,8 @@ terminal on the project's `data/`, and says so when Binder.app keeps its own lib
 
 Open **Search**. Choose **All cards** (Scryfall, full Scryfall syntax) or **My library** (your collection).
 Queries use Scryfall syntax: `t:creature c:g mv<=3 o:"draw a card"`, `id<=bg is:commander`, `-t:land r>=rare`.
-My library also understands `in:deck`, `in:built`, `in:"Deck Name"`, `free>0`, `qty>=2`, `is:foil`, and `is:wanted`.
+My library also understands `in:deck`, `in:built`, `in:"Deck Name"`, `free>0`, `qty>=2`, `is:foil`, `is:wanted`, and
+`is:unpriced` (copies with no price, which the Library's value leaves out: its "without a price" note links there).
 **Advanced ▾** opens a form that writes the query for you. If Scryfall is unreachable, Search offers to search the
 local card data instead. Scryfall's totals beyond one page read "About N": it counts digital-only cards that Binder
 leaves out.
@@ -68,7 +69,7 @@ anything is added, and it adds to your library rather than replacing it. **Expor
 ## Decks
 
 **Decks** lists your decks: built ones (you've put them together from cards you own) and prospective ones (ideas).
-Each shows how complete it is and what the missing cards cost. In a deck:
+Each shows what the whole deck costs, how complete it is, and what the missing cards cost. In a deck:
 - search on the left and press **+** to add cards, or paste a list under **Import / Export** (Arena, MTGO, or
   Moxfield text);
 - each card shows ✅ **Owned**, ⚠️ **N held by other built decks**, or 🛒 **Buy N** (hover the icon for the words).

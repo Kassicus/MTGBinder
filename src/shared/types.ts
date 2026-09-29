@@ -288,6 +288,10 @@ export interface DeckSummary {
   costToFinish: number
   /** Copies on the buy list that have no price. */
   unpricedToBuy: number
+  /** What the deck's copies cost (every board but maybe, owned or not), each at its line's price. */
+  valueUsd: number
+  /** Copies in the deck (every board but maybe) that have no price, a card gone from the card data's too. */
+  unpricedCards: number
   /** WUBRG letters: the commanders' color identity in a commander deck, else every card's. */
   colorIdentity: string
 }
@@ -401,6 +405,7 @@ export interface ScanCard {
   collectorNumber: string
   imageSmall: string | null
   finishes: Finish[]
+  prices: Prices
 }
 
 /** A card the scan might be, with how closely its name matched. */

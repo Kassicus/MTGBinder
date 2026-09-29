@@ -2,6 +2,7 @@ import { WUBRG } from '../../shared/colors.ts'
 import { normalizeName } from '../../shared/normalize.ts'
 import { RARITIES, type CompareOp, type SearchKey, type SearchNode, type Span } from '../../shared/search/ast.ts'
 import { parseColorValue } from '../../shared/search/colors.ts'
+import { COPY_PRICE_SQL } from '../collection/sql.ts'
 import type { DB } from '../db/index.ts'
 
 /** Which rows a query runs over: the owner's collection, or every printing in the local card data. */
@@ -50,14 +51,14 @@ const FIRST_FACE_NAME = 'substr(c.face_names, 1, instr(c.face_names || char(10),
 const FRONT_TYPE_LINE = "substr(c.type_line, 1, instr(c.type_line || ' // ', ' // ') - 1)"
 const PERMANENT_TYPES = ['Artifact', 'Creature', 'Enchantment', 'Land', 'Planeswalker', 'Battle']
 const LIBRARY_KEYS: ReadonlySet<SearchKey> = new Set(['in', 'free', 'qty'])
-const LIBRARY_IS = new Set(['foil', 'nonfoil', 'etched', 'wanted'])
+const LIBRARY_IS = new Set(['foil', 'nonfoil', 'etched', 'wanted', 'unpriced'])
 
 const sqlOp = (op: CompareOp) => (op === ':' ? '=' : op)
 
 /**
  * Compiles a parsed query to a parameterized SQL condition. Library-only keys (`in:`, `free`, `qty`, `is:foil`,
- * `is:nonfoil`, `is:etched`, `is:wanted`) throw SearchQueryError outside library scope. Only fixed SQL fragments are
- * inlined; every user-supplied value is a bound parameter.
+ * `is:nonfoil`, `is:etched`, `is:wanted`, `is:unpriced`) throw SearchQueryError outside library scope. Only fixed SQL
+ * fragments are inlined; every user-supplied value is a bound parameter.
  */
 export function compileFilter(ast: SearchNode, scope: SearchScope): CompiledFilter {
   const params: Record<string, string | number> = {}
@@ -128,6 +129,9 @@ export function compileFilter(ast: SearchNode, scope: SearchScope): CompiledFilt
       case 'nonfoil':
       case 'etched':
         return `(co.finish = '${value}')`
+      case 'unpriced':
+        // Priced by the row's own finish, as the library's value is: a foil copy of a printing with no foil price.
+        return `(${COPY_PRICE_SQL} IS NULL)`
       case 'wanted':
         ownership = true
         return (

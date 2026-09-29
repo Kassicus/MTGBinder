@@ -4,7 +4,7 @@ import { FORMAT_IDS, FORMATS } from '../../shared/formats.ts'
 import type { DeckStatus, DeckSummary, FormatId } from '../../shared/types.ts'
 import { ColorPips } from '../components/decks/ColorPips.tsx'
 import { apiSend } from '../lib/api.ts'
-import { completionPercent, costLabel } from '../lib/deck-view.ts'
+import { completionPercent, costLabel, valueLabel } from '../lib/deck-view.ts'
 import { useDeckChange, useDecks } from '../lib/decks.ts'
 import { plural } from '../lib/format.ts'
 import { useToast } from '../lib/toast.tsx'
@@ -158,6 +158,7 @@ function DeckCard({ deck }: { deck: DeckSummary }) {
           {deck.status}
         </span>
         <span>{plural(deck.cardCount, 'card')}</span>
+        {deck.cardCount > 0 && <span>{valueLabel(deck)}</span>}
       </div>
       {deck.cardCount === 0 ? (
         <p className="text-xs text-stone-500">No cards yet.</p>

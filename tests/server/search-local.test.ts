@@ -149,6 +149,7 @@ describe('searchLocal: errors', () => {
     ['qty>1', 'qty only works when searching My library'],
     ['is:foil', 'is:foil only works when searching My library'],
     ['is:wanted', 'is:wanted only works when searching My library'],
+    ['is:unpriced', 'is:unpriced only works when searching My library'],
   ])('rejects the library-only key in %s', (q, message) => {
     expect(() => searchLocal(db, { q, sort: 'name', dir: 'asc', page: 1 })).toThrow(message)
   })

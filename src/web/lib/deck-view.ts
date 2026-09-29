@@ -179,3 +179,9 @@ export function costLabel(deck: Pick<DeckSummary, 'costToFinish' | 'unpricedToBu
   if (deck.unpricedToBuy > 0) return `${unpriced} to buy, without a price`
   return 'Nothing to buy'
 }
+
+/** What the whole deck costs, in words: "$412.50 total", or "$412.50 total (2 cards without a price)". */
+export function valueLabel(deck: Pick<DeckSummary, 'valueUsd' | 'unpricedCards'>): string {
+  const total = `${formatUsd(deck.valueUsd)} total`
+  return deck.unpricedCards > 0 ? `${total} (${plural(deck.unpricedCards, 'card')} without a price)` : total
+}
