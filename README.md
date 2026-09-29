@@ -147,8 +147,8 @@ Scryfall card images, downloaded once into `data/bench`.
 
 ## Keyboard shortcuts
 
-`?` lists them. `/` finds a card. `g` then a letter goes to a page: `g l` Library, `g s` Search, `g e` Sets,
-`g c` Scan, `g d` Decks, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
+`?` lists them. `/` finds a card. `g` then a letter goes to a page: `g l` Library, `g c` Scan, `g d` Decks,
+`g s` Search, `g e` Sets, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
 Auto and Manual. None of them fire while a text field or dropdown has focus. (Space still captures on a focused
 dropdown, instead of opening it.)
 

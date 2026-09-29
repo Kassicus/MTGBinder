@@ -3,10 +3,10 @@ import { TEXT_INPUT_TYPES } from './capture.ts'
 /** The pages `g` then a letter goes to, in the order the header (Layout's NAV) and the shortcuts list show them. */
 export const GO_TO: ReadonlyArray<{ key: string; path: string; label: string }> = [
   { key: 'l', path: '/library', label: 'Library' },
-  { key: 's', path: '/search', label: 'Search' },
-  { key: 'e', path: '/sets', label: 'Sets' },
   { key: 'c', path: '/scan', label: 'Scan' },
   { key: 'd', path: '/decks', label: 'Decks' },
+  { key: 's', path: '/search', label: 'Search' },
+  { key: 'e', path: '/sets', label: 'Sets' },
   { key: 'b', path: '/brainstorm', label: 'Brainstorm' },
   { key: 't', path: '/settings', label: 'Settings' },
 ]
