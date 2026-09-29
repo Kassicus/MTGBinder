@@ -7,6 +7,8 @@ import { HomePage } from './pages/HomePage.tsx'
 import { LibraryPage } from './pages/LibraryPage.tsx'
 import { ScanPage } from './pages/ScanPage.tsx'
 import { SearchPage } from './pages/SearchPage.tsx'
+import { SetPage } from './pages/SetPage.tsx'
+import { SetsPage } from './pages/SetsPage.tsx'
 import { SettingsPage } from './pages/SettingsPage.tsx'
 
 export const router = createBrowserRouter([
@@ -17,6 +19,8 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'library', element: <LibraryPage /> },
+      { path: 'sets', element: <SetsPage /> },
+      { path: 'sets/:code', element: <SetPage /> },
       { path: 'scan', element: <ScanPage /> },
       { path: 'decks', element: <DecksPage /> },
       { path: 'decks/:id', element: <DeckEditorPage /> },

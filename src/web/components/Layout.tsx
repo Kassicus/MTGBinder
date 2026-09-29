@@ -12,6 +12,7 @@ export const NAV: Array<{ to: string; label: string; end: boolean }> = [
   { to: '/', label: 'Look up', end: true },
   { to: '/search', label: 'Search', end: false },
   { to: '/library', label: 'Library', end: false },
+  { to: '/sets', label: 'Sets', end: false },
   { to: '/scan', label: 'Scan', end: false },
   { to: '/decks', label: 'Decks', end: false },
   { to: '/brainstorm', label: 'Brainstorm', end: false },

@@ -5,6 +5,7 @@ export const GO_TO: ReadonlyArray<{ key: string; path: string; label: string }> 
   { key: 'h', path: '/', label: 'Look up' },
   { key: 's', path: '/search', label: 'Search' },
   { key: 'l', path: '/library', label: 'Library' },
+  { key: 'e', path: '/sets', label: 'Sets' },
   { key: 'c', path: '/scan', label: 'Scan' },
   { key: 'd', path: '/decks', label: 'Decks' },
   { key: 'b', path: '/brainstorm', label: 'Brainstorm' },

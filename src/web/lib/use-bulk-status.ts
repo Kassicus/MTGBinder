@@ -20,9 +20,15 @@ export function useBulkStatus() {
 }
 
 /**
- * Keeps the card-data status fresh, polling every second while a refresh runs. When a run finishes, cached lookups,
- * searches, library stats, set/type lists, and decks are refetched so the new data (names, images, prices) shows up,
- * and so is the library file's size (Settings). Layout calls this, once for every page.
+ * What a finished card-data refresh refetches, so the new data (names, images, prices) shows up: cached lookups,
+ * searches, library stats, set/type lists, the Sets pages (whose totals follow the card data), decks, and the library
+ * file's size (Settings).
+ */
+export const CARD_DATA_QUERIES = ['autocomplete', 'card', 'search', 'collection', 'catalog', 'sets', 'decks', 'deck', 'library-size'] as const
+
+/**
+ * Keeps the card-data status fresh, polling every second while a refresh runs, and refetches CARD_DATA_QUERIES when a
+ * run finishes. Layout calls this, once for every page.
  */
 export function useBulkRefresh() {
   const queryClient = useQueryClient()
@@ -31,14 +37,7 @@ export function useBulkRefresh() {
   const wasRunning = useRef(running)
   useEffect(() => {
     if (wasRunning.current && !running) {
-      void queryClient.invalidateQueries({ queryKey: ['autocomplete'] })
-      void queryClient.invalidateQueries({ queryKey: ['card'] })
-      void queryClient.invalidateQueries({ queryKey: ['search'] })
-      void queryClient.invalidateQueries({ queryKey: ['collection'] })
-      void queryClient.invalidateQueries({ queryKey: ['catalog'] })
-      void queryClient.invalidateQueries({ queryKey: ['decks'] })
-      void queryClient.invalidateQueries({ queryKey: ['deck'] })
-      void queryClient.invalidateQueries({ queryKey: ['library-size'] })
+      for (const key of CARD_DATA_QUERIES) void queryClient.invalidateQueries({ queryKey: [key] })
     }
     wasRunning.current = running
   }, [running, queryClient])

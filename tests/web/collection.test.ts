@@ -7,6 +7,8 @@ const KEYS = [
   ['search', '/api/search/scryfall?q=bolt'],
   ['search', '/api/search/library?q=bolt'],
   ['collection', 'stats'],
+  ['sets'],
+  ['sets', 'dsk'],
   ['decks'],
   ['deck', 1],
   ['settings'],
@@ -21,11 +23,11 @@ function invalidatedBy(options?: { keepScryfallSearches?: boolean }): string[] {
 }
 
 describe('invalidateCollection', () => {
-  it('refetches card details, every search, library stats, and decks', () => {
-    expect(invalidatedBy()).toEqual(['card c-1', 'search /api/search/scryfall?q=bolt', 'search /api/search/library?q=bolt', 'collection stats', 'decks', 'deck 1'])
+  it('refetches card details, every search, library stats, sets, and decks', () => {
+    expect(invalidatedBy()).toEqual(['card c-1', 'search /api/search/scryfall?q=bolt', 'search /api/search/library?q=bolt', 'collection stats', 'sets', 'sets dsk', 'decks', 'deck 1'])
   })
 
   it("leaves Scryfall searches alone for a deck change, so a click doesn't query Scryfall again", () => {
-    expect(invalidatedBy({ keepScryfallSearches: true })).toEqual(['card c-1', 'search /api/search/library?q=bolt', 'collection stats', 'decks', 'deck 1'])
+    expect(invalidatedBy({ keepScryfallSearches: true })).toEqual(['card c-1', 'search /api/search/library?q=bolt', 'collection stats', 'sets', 'sets dsk', 'decks', 'deck 1'])
   })
 })

@@ -26,9 +26,9 @@ describe('keyboard shortcuts', () => {
   })
 
   it('has a letter for every page, each its own, and lists every shortcut', () => {
-    expect(GO_TO.map((p) => p.path)).toEqual(['/', '/search', '/library', '/scan', '/decks', '/brainstorm', '/settings'])
+    expect(GO_TO.map((p) => p.path)).toEqual(['/', '/search', '/library', '/sets', '/scan', '/decks', '/brainstorm', '/settings'])
     expect(new Set(GO_TO.map((p) => p.key)).size).toBe(GO_TO.length)
-    expect(SHORTCUTS.map((s) => s.keys.join(' '))).toEqual(['?', '/', 'g h', 'g s', 'g l', 'g c', 'g d', 'g b', 'g t', 'Space', 'a', 'Esc'])
+    expect(SHORTCUTS.map((s) => s.keys.join(' '))).toEqual(['?', '/', 'g h', 'g s', 'g l', 'g e', 'g c', 'g d', 'g b', 'g t', 'Space', 'a', 'Esc'])
   })
 
   it('never fires while typing, with Ctrl, Cmd or Alt, or with the card details open', () => {
