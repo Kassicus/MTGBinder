@@ -56,8 +56,8 @@ leaves out.
 
 ## Your library
 
-Open any card (from Look up, Search, Library, or the `/` finder) to see **Your copies**. Step them up or down, or
-pick a printing and finish under **Add a copy**. **Library** lists what you own, with totals (cards, unique cards, and
+Open any card (from Look up, Search, Library, Sets, or the `/` finder) to see **Your copies**. Step them up or down,
+or pick a printing and finish under **Add a copy**. **Library** lists what you own, with totals (cards, unique cards, and
 value at each copy's finish price), and searches only your collection. Sort it by **Quantity** (with the ↑/↓ button
 for either way round) to see what you have the most, or the fewest, copies of.
 
@@ -65,6 +65,15 @@ for either way round) to see what you have the most, or the fewest, copies of.
 Count and Name columns (add Edition and Collector Number to pin the printing; with those two, the name is optional). It shows how each row matched before
 anything is added, and it adds to your library rather than replacing it. **Export CSV** writes
 `Count,Name,Edition,Collector Number,Foil`, which Moxfield and most other apps can import.
+
+## Sets
+
+**Sets** lists every set you own a card from, with how much of it you have: "85 / 276 30%". A set counts as
+complete when you own one copy of each card in it, in any printing from that set (a showcase or borderless copy counts
+for its card) and any finish; a copy of the same card from another set counts for that set instead. Percentages round
+down, so only a complete set shows 100%, with a gold bar. Sort by completion, release date, name, or cards owned, and
+filter by name or code. Open a set to see every card in collector-number order, the ones you're missing dimmed;
+**Missing only** lists just those. Click a card to add a copy.
 
 ## Decks
 
@@ -137,7 +146,7 @@ Scryfall card images, downloaded once into `data/bench`.
 ## Keyboard shortcuts
 
 `?` lists them. `/` finds a card. `g` then a letter goes to a page: `g h` Look up, `g s` Search, `g l` Library,
-`g c` Scan, `g d` Decks, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
+`g e` Sets, `g c` Scan, `g d` Decks, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
 Auto and Manual. None of them fire while a text field or dropdown has focus. (Space still captures on a focused
 dropdown, instead of opening it.)
 
