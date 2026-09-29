@@ -16,6 +16,7 @@ import { ApiError, localOnly } from './http.ts'
 import { scanRoutes, type ScanService } from './scanner/routes.ts'
 import type { ScryfallClient } from './scryfall/client.ts'
 import { searchRoutes } from './search/routes.ts'
+import { setRoutes } from './sets/routes.ts'
 import { settingsRoutes } from './settings-routes.ts'
 
 export interface AppDeps {
@@ -51,6 +52,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/search', searchRoutes(deps))
   app.route('/api/catalog', catalogRoutes(deps))
   app.route('/api/collection', collectionRoutes(deps))
+  app.route('/api/sets', setRoutes(deps))
   app.route('/api/decks', deckRoutes(deps))
   app.route('/api/settings', settingsRoutes(deps))
   if (deps.scanner) app.route('/api/scan', scanRoutes({ db: deps.db, scanner: deps.scanner }))

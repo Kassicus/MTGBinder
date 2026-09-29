@@ -101,6 +101,37 @@ export interface CollectionStats {
   lastAddedAt: string | null
 }
 
+/** A set and how much of it the collection holds (spec §5.8): its cards are the card identities among its printings. */
+export interface SetProgress {
+  code: string
+  name: string
+  /** Scryfall's set type (`expansion`, `commander`, …); '' in card data imported before set types were kept. */
+  setType: string
+  /** The release date of the set's earliest printing (YYYY-MM-DD). */
+  releasedAt: string
+  /** The set's cards with a copy owned from the set, in any of its printings there and any finish. */
+  owned: number
+  /** The set's cards. */
+  total: number
+}
+
+/** One card of a set: its printing with the lowest collector number in the set. */
+export interface SetCard {
+  cardId: string
+  oracleId: string
+  name: string
+  collectorNumber: string
+  manaCost: string
+  rarity: string
+  /** Copies owned of the card's printings in this set, in every finish. */
+  copies: number
+}
+
+/** A set with its cards, in collector-number order (spec §5.8). */
+export interface SetDetail extends SetProgress {
+  cards: SetCard[]
+}
+
 /** The collection row a change left behind; quantity 0 means none are left. */
 export interface CopyCount {
   cardId: string
