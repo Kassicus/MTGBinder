@@ -1,4 +1,5 @@
-import { Link, useSearchParams } from 'react-router'
+import { useState } from 'react'
+import { Link, useNavigationType, useSearchParams } from 'react-router'
 import type { SetProgress } from '../../shared/types.ts'
 import { SetBar } from '../components/sets/SetBar.tsx'
 import { plural } from '../lib/format.ts'
@@ -9,16 +10,28 @@ const input = 'rounded-md border border-stone-700 bg-stone-900 px-2 py-1.5 text-
 /** Every set with a copy owned, and how complete each is (spec §5.8). The sort and filter live in the address. */
 export function SetsPage() {
   const [params, setParams] = useSearchParams()
+  const navigationType = useNavigationType()
   const sort = readSetSort(params.get('sort'))
   const filter = params.get('q') ?? ''
+  // The box keeps its own text, as SearchBar does: the router updates the address in a transition, a moment after the
+  // keystroke, so a box bound to the address would jump its caret to the end and could drop a letter typed meanwhile.
+  const [draft, setDraft] = useState(filter)
+  // A new address from elsewhere (Back/Forward, a link to Sets) replaces the text in the same render. The box's own
+  // writes replace the history entry and only catch the address up to the text; re-syncing on those could undo letters
+  // typed since.
+  const [shownFilter, setShownFilter] = useState(filter)
+  if (filter !== shownFilter) {
+    setShownFilter(filter)
+    if (navigationType !== 'REPLACE') setDraft(filter)
+  }
   const { data: sets, error, isPending } = useSets()
-  const shown = sets ? sortSets(filterSets(sets, filter), sort) : []
+  const shown = sets ? sortSets(filterSets(sets, draft), sort) : []
 
   // Replaces the history entry, so Back leaves the page rather than stepping through each letter typed.
   const change = (patch: { sort?: SetSort; q?: string }) => {
     const next = new URLSearchParams(params)
     const nextSort = patch.sort ?? sort
-    const nextFilter = patch.q ?? filter
+    const nextFilter = patch.q ?? draft
     if (nextSort === 'completion') next.delete('sort')
     else next.set('sort', nextSort)
     if (nextFilter === '') next.delete('q')
@@ -55,8 +68,11 @@ export function SetsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <input
               type="search"
-              value={filter}
-              onChange={(e) => change({ q: e.target.value })}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                change({ q: e.target.value })
+              }}
               placeholder="Filter by name or code"
               aria-label="Filter sets by name or code"
               className={`${input} w-full max-w-xs`}
@@ -73,7 +89,7 @@ export function SetsPage() {
             </label>
           </div>
           {shown.length === 0 ? (
-            <p className="py-12 text-center text-stone-500">No sets match “{filter.trim()}”.</p>
+            <p className="py-12 text-center text-stone-500">No sets match “{draft.trim()}”.</p>
           ) : (
             <ul className="space-y-3">
               {shown.map((set) => (

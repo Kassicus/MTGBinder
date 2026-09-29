@@ -3,7 +3,7 @@ import type { SetCard } from '../../shared/types.ts'
 import { ManaText } from '../components/ManaText.tsx'
 import { SetBar } from '../components/sets/SetBar.tsx'
 import { useCardDrawer } from '../lib/card-drawer.tsx'
-import { isNoSet, releaseMonth, setTypeLabel, useSet } from '../lib/sets.ts'
+import { isNoSet, releaseDate, setTypeLabel, useSet } from '../lib/sets.ts'
 
 /**
  * One set: its bar, then every card in collector-number order, a missing card dimmed, with All | Missing only in the
@@ -61,7 +61,7 @@ export function SetPage() {
           <h1 className="font-serif text-3xl font-semibold [overflow-wrap:anywhere] text-stone-50">{set.name}</h1>
           <p className="text-sm text-stone-400">
             <span className="font-mono uppercase">{set.code}</span>
-            {type && ` · ${type}`} · Released {releaseMonth(set.releasedAt)}
+            {type && ` · ${type}`} · Released {releaseDate(set.releasedAt)}
           </p>
         </div>
         <div className="max-w-2xl">

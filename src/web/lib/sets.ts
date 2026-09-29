@@ -66,11 +66,23 @@ export function setTypeLabel(type: string): string {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** "Sep 2024" for 2024-09-27, read from the text itself (a Date would move it a day in time zones west of UTC). */
+/** A YYYY-MM-DD date's parts, read from the text itself: a Date would move it a day in time zones west of UTC. */
+function dateParts(date: string): { year: string; month: string; day: number } | null {
+  const [, year, month, day] = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date) ?? []
+  const name = MONTHS[Number(month) - 1]
+  return year && name && day ? { year, month: name, day: Number(day) } : null
+}
+
+/** "Sep 2024" for 2024-09-27: the Sets list's rows. */
 export function releaseMonth(date: string): string {
-  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(date)
-  const month = match ? MONTHS[Number(match[2]) - 1] : undefined
-  return match && month ? `${month} ${match[1]}` : date
+  const parts = dateParts(date)
+  return parts ? `${parts.month} ${parts.year}` : date
+}
+
+/** "Sep 27, 2024" for 2024-09-27: a set's own page. */
+export function releaseDate(date: string): string {
+  const parts = dateParts(date)
+  return parts ? `${parts.month} ${parts.day}, ${parts.year}` : date
 }
 
 /** The sets with a copy owned (refetched with the collection: see invalidateCollection). */

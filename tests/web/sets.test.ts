@@ -5,6 +5,7 @@ import {
   isComplete,
   percentLabel,
   readSetSort,
+  releaseDate,
   releaseMonth,
   setPercent,
   setTypeLabel,
@@ -88,5 +89,10 @@ describe('labels', () => {
   it('gives the release month, whatever the time zone', () => {
     expect(['2024-09-27', '2019-12-02', '2025-01-01'].map(releaseMonth)).toEqual(['Sep 2024', 'Dec 2019', 'Jan 2025'])
     expect(releaseMonth('soon')).toBe('soon')
+  })
+
+  it("gives the set page's release date, whatever the time zone", () => {
+    expect(['2024-09-27', '2019-12-02', '2025-01-01'].map(releaseDate)).toEqual(['Sep 27, 2024', 'Dec 2, 2019', 'Jan 1, 2025'])
+    expect([releaseDate('soon'), releaseDate('2024-13-01')]).toEqual(['soon', '2024-13-01'])
   })
 })
