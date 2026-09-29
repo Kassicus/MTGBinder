@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { SHORTCUTS } from '../lib/shortcuts.ts'
 
 /**
- * Opens the keyboard shortcuts list. Layout provides it, so a page can offer a button for the list (Look up's Getting
- * started, where the finder has focus and `?` would type into it). Outside Layout it does nothing.
+ * Opens the keyboard shortcuts list. Layout provides it, so a page can offer a button for the list (Library's Getting
+ * started, for someone who doesn't know `?` yet). Outside Layout it does nothing.
  */
 export const OpenShortcutsContext = createContext<() => void>(() => {})
 

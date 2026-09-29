@@ -1,23 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useCardDrawer } from '../lib/card-drawer.tsx'
-import { createGoTo, shortcutAllowed } from '../lib/shortcuts.ts'
+import { createGoTo, GO_TO, shortcutAllowed } from '../lib/shortcuts.ts'
 import { useBulkRefresh } from '../lib/use-bulk-status.ts'
 import { CardDrawer } from './CardDrawer.tsx'
 import { QuickFind } from './QuickFind.tsx'
 import { OpenShortcutsContext, ShortcutsDialog } from './ShortcutsDialog.tsx'
 
-/** Top-level navigation. Later milestones append entries here. */
-export const NAV: Array<{ to: string; label: string; end: boolean }> = [
-  { to: '/', label: 'Look up', end: true },
-  { to: '/search', label: 'Search', end: false },
-  { to: '/library', label: 'Library', end: false },
-  { to: '/sets', label: 'Sets', end: false },
-  { to: '/scan', label: 'Scan', end: false },
-  { to: '/decks', label: 'Decks', end: false },
-  { to: '/brainstorm', label: 'Brainstorm', end: false },
-  { to: '/settings', label: 'Settings', end: false },
-]
+/** Top-level navigation: the pages `g` then a letter goes to (GO_TO), in the same order. */
+export const NAV: Array<{ to: string; label: string }> = GO_TO.map(({ path, label }) => ({ to: path, label }))
 
 export function Layout() {
   useBulkRefresh() // keeps lookups and searches fresh after a card-data refresh, whichever page is open
@@ -55,7 +46,7 @@ export function Layout() {
       <div className="min-h-dvh bg-stone-950 text-stone-200">
         <header inert={covered} className="sticky top-0 z-20 border-b border-stone-800/80 bg-stone-950/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-2.5">
-            <NavLink to="/" className="font-serif text-xl font-semibold tracking-wide text-amber-400">
+            <NavLink to="/library" className="font-serif text-xl font-semibold tracking-wide text-amber-400">
               Binder
             </NavLink>
             <nav className="flex gap-1">
@@ -63,7 +54,6 @@ export function Layout() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.end}
                   className={({ isActive }) =>
                     `rounded-md px-3 py-1.5 text-sm ${isActive ? 'bg-stone-800 text-stone-50' : 'text-stone-400 hover:text-stone-100'}`
                   }

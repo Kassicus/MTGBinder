@@ -22,13 +22,15 @@ describe('keyboard shortcuts', () => {
     // Another key after g, or a letter that names no page, goes nowhere.
     expect([go.press('g', 9000), go.press('x', 9100), go.press('s', 9200)]).toEqual([null, null, null])
     // Another g starts the wait over.
-    expect([go.press('g', 10_000), go.press('g', 10_000 + GO_TO_MS), go.press('h', 10_000 + 2 * GO_TO_MS)]).toEqual([null, null, '/'])
+    expect([go.press('g', 10_000), go.press('g', 10_000 + GO_TO_MS), go.press('l', 10_000 + 2 * GO_TO_MS)]).toEqual([null, null, '/library'])
+    // Look up is gone: h names no page.
+    expect([go.press('g', 20_000), go.press('h', 20_100)]).toEqual([null, null])
   })
 
-  it('has a letter for every page, each its own, and lists every shortcut', () => {
-    expect(GO_TO.map((p) => p.path)).toEqual(['/', '/search', '/library', '/sets', '/scan', '/decks', '/brainstorm', '/settings'])
+  it("has a letter for every page, each its own, in the header's order, and lists every shortcut", () => {
+    expect(GO_TO.map((p) => p.path)).toEqual(['/library', '/search', '/sets', '/scan', '/decks', '/brainstorm', '/settings'])
     expect(new Set(GO_TO.map((p) => p.key)).size).toBe(GO_TO.length)
-    expect(SHORTCUTS.map((s) => s.keys.join(' '))).toEqual(['?', '/', 'g h', 'g s', 'g l', 'g e', 'g c', 'g d', 'g b', 'g t', 'Space', 'a', 'Esc'])
+    expect(SHORTCUTS.map((s) => s.keys.join(' '))).toEqual(['?', '/', 'g l', 'g s', 'g e', 'g c', 'g d', 'g b', 'g t', 'Space', 'a', 'Esc'])
   })
 
   it('never fires while typing, with Ctrl, Cmd or Alt, or with the card details open', () => {

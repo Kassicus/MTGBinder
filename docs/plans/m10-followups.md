@@ -12,8 +12,9 @@ whole-milestone review, and that review's fix wave. None of them blocks M10. The
   Then add a missing card from its card details. Its row should turn to "✓ 1" and the bar should move.
 - **Coming back to a set:** open a set, go back, scroll far down the list, and open the same set again. It should
   open at its top.
-- **Binder.app at its narrowest** (820 px): the header now has eight links. By an estimate that nobody has rendered
-  yet, the card finder beside them is left about 20 px wide. Say whether it's usable.
+- **Binder.app at its narrowest** (820 px): M10 gave the header eight links, which by an estimate left the card finder
+  about 20 px wide. Merging Look up into Search and Library (after M10) brought it back to seven. Say whether the
+  finder is usable.
 - **The List** (`/sets/plst`) is the largest set, at 5,258 cards. It shows in about 0.4 s in headless Chrome.
   Opening a card's details there takes about 0.1 s.
 

@@ -2,23 +2,29 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import type { CollectionStats } from '../../shared/types.ts'
+import { CardDataNotice } from '../components/library/CardDataNotice.tsx'
 import { ImportPanel } from '../components/library/ImportPanel.tsx'
 import { apiGet } from '../lib/api.ts'
 import { formatDate, formatUsd } from '../lib/format.ts'
 import { readSearchState, writeSearchState } from '../lib/search-state.ts'
 import { SearchView } from './SearchPage.tsx'
 
-/** My library: totals, CSV import and export, and search locked to the collection (spec §5.2, §5.3). */
+/**
+ * My library, where Binder opens: totals, CSV import and export, and search locked to the collection (spec §5.2, §5.3).
+ * Before there's card data it says how to get it, and while nothing is owned its results show Getting started (§5.7).
+ */
 export function LibraryPage() {
-  // Look up's Getting started opens the page with the import panel showing.
+  // Getting started's Import a CSV (on this page) and other pages' links open the page with the import panel showing.
   const { pathname, search, state } = useLocation()
   const navigate = useNavigate()
   const openedImporting = (state as { importing?: boolean } | null)?.importing === true
   const [importing, setImporting] = useState(openedImporting)
   // Once read, the history entry drops that state (keeping the path and the search), so a reload or Back doesn't open
-  // the panel again.
+  // the panel again. Opening it here too covers a link from this page, which keeps the page mounted.
   useEffect(() => {
-    if (openedImporting) void navigate({ pathname, search }, { replace: true, state: null })
+    if (!openedImporting) return
+    setImporting(true)
+    void navigate({ pathname, search }, { replace: true, state: null })
   }, [openedImporting, pathname, search, navigate])
   const stats = useQuery({
     queryKey: ['collection', 'stats'],
@@ -55,6 +61,7 @@ export function LibraryPage() {
           </a>
         </div>
       </div>
+      <CardDataNotice />
       {importing && <ImportPanel onClose={() => setImporting(false)} />}
       <SearchView locked="library" />
     </div>

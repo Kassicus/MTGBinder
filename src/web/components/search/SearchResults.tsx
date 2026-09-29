@@ -5,6 +5,7 @@ import { useCardDrawer } from '../../lib/card-drawer.tsx'
 import { formatUsd } from '../../lib/format.ts'
 import type { SearchState } from '../../lib/search-state.ts'
 import { ManaText } from '../ManaText.tsx'
+import { GettingStarted } from '../library/GettingStarted.tsx'
 import { OwnershipBadge } from './OwnershipBadge.tsx'
 
 const SORT_LABELS: Record<SearchSort, string> = {
@@ -92,20 +93,18 @@ export function SearchResults({ page, state, fetching, onChange, libraryPage = f
             Back to the first page
           </button>
         </p>
+      ) : page.cards.length === 0 && library && libraryPage && state.q.trim() === '' ? (
+        <GettingStarted />
       ) : page.cards.length === 0 ? (
         <p className="py-16 text-center text-stone-400">
           {library && state.q.trim() === '' ? (
-            libraryPage ? (
-              'Your library is empty. Scan your cards on the Scan page, use Import CSV above, or open any card and use Add copy.'
-            ) : (
-              <>
-                Your library is empty. Scan your cards on the Scan page,{' '}
-                <Link to="/library" state={{ importing: true }} className="text-amber-300 hover:underline">
-                  import a CSV on the Library page
-                </Link>
-                , or open any card and use Add copy.
-              </>
-            )
+            <>
+              Your library is empty. Scan your cards on the Scan page,{' '}
+              <Link to="/library" state={{ importing: true }} className="text-amber-300 hover:underline">
+                import a CSV on the Library page
+              </Link>
+              , or open any card and use Add copy.
+            </>
           ) : (
             'No cards match.'
           )}

@@ -1,9 +1,8 @@
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, Navigate } from 'react-router'
 import { Layout } from './components/Layout.tsx'
 import { BrainstormPage } from './pages/BrainstormPage.tsx'
 import { DeckEditorPage } from './pages/DeckEditorPage.tsx'
 import { DecksPage } from './pages/DecksPage.tsx'
-import { HomePage } from './pages/HomePage.tsx'
 import { LibraryPage } from './pages/LibraryPage.tsx'
 import { ScanPage } from './pages/ScanPage.tsx'
 import { SearchPage } from './pages/SearchPage.tsx'
@@ -16,7 +15,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <Layout />,
     children: [
-      { index: true, element: <HomePage /> },
+      // Binder opens on Library (spec §5.7): Binder.app's first page, and old links to Look up, land there.
+      { index: true, element: <Navigate to="/library" replace /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'library', element: <LibraryPage /> },
       { path: 'sets', element: <SetsPage /> },

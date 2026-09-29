@@ -9,12 +9,11 @@ import { useDebounced } from '../lib/use-debounced.ts'
 import { ManaText } from './ManaText.tsx'
 
 /**
- * Card-name lookup, as an ARIA combobox. Arrow keys move, Enter opens the card drawer, Escape closes the list.
- * The header instance (size "md") also focuses when "/" is pressed, by the same rule as the other shortcuts: not while
- * typing in a field, with Ctrl, Cmd or Alt, or while a dialog (the card drawer, the shortcuts list) is open.
- * `autoFocus` focuses the field on mount unless something else on the page already has focus.
+ * Card-name lookup in the header, as an ARIA combobox. Arrow keys move, Enter opens the card drawer, Escape closes the
+ * list. It focuses when "/" is pressed, by the same rule as the other shortcuts: not while typing in a field, with
+ * Ctrl, Cmd or Alt, or while a dialog (the card drawer, the shortcuts list) is open.
  */
-export function QuickFind({ size = 'md', autoFocus = false }: { size?: 'md' | 'lg'; autoFocus?: boolean }) {
+export function QuickFind() {
   const [text, setText] = useState('')
   const [listOpen, setListOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -38,12 +37,7 @@ export function QuickFind({ size = 'md', autoFocus = false }: { size?: 'md' | 'l
   useEffect(() => setActive(0), [query])
 
   useEffect(() => {
-    // Claim focus only if the user isn't already somewhere else (e.g. typing in the header search).
-    if (autoFocus && (document.activeElement === null || document.activeElement === document.body)) inputRef.current?.focus()
-  }, []) // mount only: a later render must never pull focus back
-
-  useEffect(() => {
-    if (size !== 'md' || drawerOpen) return
+    if (drawerOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === '/' && shortcutAllowed(e, document.querySelector('[aria-modal="true"]') !== null)) {
         e.preventDefault()
@@ -52,7 +46,7 @@ export function QuickFind({ size = 'md', autoFocus = false }: { size?: 'md' | 'l
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [size, drawerOpen])
+  }, [drawerOpen])
 
   function choose(card: CardSummary) {
     drawer.open(card.cardId)
@@ -80,7 +74,6 @@ export function QuickFind({ size = 'md', autoFocus = false }: { size?: 'md' | 'l
     }
   }
 
-  const inputSize = size === 'lg' ? 'h-14 px-5 text-lg' : 'h-9 px-3 text-sm'
   const showList = listOpen && list.show
   const optionId = (i: number) => `${listId}-option-${i}`
   const activeId = showList && !error && results[active] ? optionId(active) : undefined
@@ -98,13 +91,13 @@ export function QuickFind({ size = 'md', autoFocus = false }: { size?: 'md' | 'l
         onBlur={() => setListOpen(false)}
         onKeyDown={onKeyDown}
         role="combobox"
-        aria-label={size === 'lg' ? 'Look up any card' : 'Find a card'}
+        aria-label="Find a card"
         aria-expanded={showList}
         aria-controls={showList ? listId : undefined}
         aria-activedescendant={activeId}
         aria-autocomplete="list"
-        placeholder={size === 'lg' ? 'Look up any card…' : 'Find a card   /'}
-        className={`w-full rounded-lg border border-stone-700 bg-stone-900/80 text-stone-100 outline-none placeholder:text-stone-500 focus:border-amber-500/70 focus:ring-2 focus:ring-amber-500/20 ${inputSize}`}
+        placeholder="Find a card   /"
+        className="h-9 w-full rounded-lg border border-stone-700 bg-stone-900/80 px-3 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-amber-500/70 focus:ring-2 focus:ring-amber-500/20"
       />
       {isFetching && (
         <span aria-hidden className="absolute top-1/2 right-3 size-2 -translate-y-1/2 animate-pulse rounded-full bg-amber-500/70" />

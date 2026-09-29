@@ -11,8 +11,8 @@ pnpm run setup      # builds the OCR helper, creates data/binder.db, imports Scr
 pnpm start          # builds the UI and serves everything at http://localhost:4321
 ```
 
-With an empty collection, **Look up** shows three ways to start: scan your cards, import a CSV, or scan or build a
-deck. Press `?` (anywhere but a text box or dropdown) for the keyboard shortcuts.
+Binder opens on **Library**. With an empty collection, it shows three ways to start: scan your cards, import a CSV,
+or scan or build a deck. Press `?` (anywhere but a text box or dropdown) for the keyboard shortcuts.
 
 ## Binder.app
 
@@ -46,7 +46,8 @@ terminal on the project's `data/`, and says so when Binder.app keeps its own lib
 
 ## Searching
 
-Open **Search**. Choose **All cards** (Scryfall, full Scryfall syntax) or **My library** (your collection).
+Open **Search**. Choose **All cards** (Scryfall, full Scryfall syntax; the default) or **My library** (your
+collection). To jump to one card by name, use the **Find a card** box at the top of every page (or press `/`).
 Queries use Scryfall syntax: `t:creature c:g mv<=3 o:"draw a card"`, `id<=bg is:commander`, `-t:land r>=rare`.
 My library also understands `in:deck`, `in:built`, `in:"Deck Name"`, `free>0`, `qty>=2`, `is:foil`, `is:wanted`, and
 `is:unpriced` (copies with no price, which the Library's value leaves out: its "without a price" note links there).
@@ -56,8 +57,8 @@ leaves out.
 
 ## Your library
 
-Open any card (from Look up, Search, Library, Sets, or the `/` finder) to see **Your copies**. Step them up or down,
-or pick a printing and finish under **Add a copy**. **Library** lists what you own, with totals (cards, unique cards, and
+Open any card (from Library, Search, Sets, or the `/` finder) to see **Your copies**. Step them up or down, or pick
+a printing and finish under **Add a copy**. **Library** lists what you own, with totals (cards, unique cards, and
 value at each copy's finish price), and searches only your collection. Sort it by **Quantity** (with the ↑/↓ button
 for either way round) to see what you have the most, or the fewest, copies of.
 
@@ -146,8 +147,8 @@ Scryfall card images, downloaded once into `data/bench`.
 
 ## Keyboard shortcuts
 
-`?` lists them. `/` finds a card. `g` then a letter goes to a page: `g h` Look up, `g s` Search, `g l` Library,
-`g e` Sets, `g c` Scan, `g d` Decks, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
+`?` lists them. `/` finds a card. `g` then a letter goes to a page: `g l` Library, `g s` Search, `g e` Sets,
+`g c` Scan, `g d` Decks, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
 Auto and Manual. None of them fire while a text field or dropdown has focus. (Space still captures on a focused
 dropdown, instead of opening it.)
 
