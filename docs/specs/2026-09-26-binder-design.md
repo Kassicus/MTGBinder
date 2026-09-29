@@ -344,8 +344,25 @@ Tabs for Built, Prospective, and All. Each deck card shows name, format, status,
 
 ### 5.7 First use and keyboard shortcuts
 - **Getting started**: while the collection is empty, Look up shows three first steps under the finder: scan your cards, import a CSV (it opens the Library with the import panel), and scan or build a deck.
-- **Empty states**: the Library, Search, Decks, deck editor, and Scan pages each say what to do next when there's nothing to show.
-- **Keyboard shortcuts** (none while a text field or dropdown has focus, with Ctrl, Cmd, or Alt, or while the card details are open): `?` lists them (also the **?** button in the header, and **Keyboard shortcuts** under Getting started); `/` finds a card; `g` then a letter goes to a page (`h` Look up, `s` Search, `l` Library, `c` Scan, `d` Decks, `b` Brainstorm, `t` Settings; within 1.5 s); on the Scan page, Space captures (on a focused dropdown too, instead of opening it) and `a` switches between Auto and Manual.
+- **Empty states**: the Library, Search, Sets, Decks, deck editor, and Scan pages each say what to do next when there's nothing to show.
+- **Keyboard shortcuts** (none while a text field or dropdown has focus, with Ctrl, Cmd, or Alt, or while the card details are open): `?` lists them (also the **?** button in the header, and **Keyboard shortcuts** under Getting started); `/` finds a card; `g` then a letter goes to a page (`h` Look up, `s` Search, `l` Library, `e` Sets, `c` Scan, `d` Decks, `b` Brainstorm, `t` Settings; within 1.5 s); on the Scan page, Space captures (on a focused dropdown too, instead of opening it) and `a` switches between Auto and Manual.
+
+### 5.8 Sets (`/sets`, `/sets/:code`)
+How complete the collection is, set by set (the owner's design, 2026-09-29).
+
+- **Completion**: a set is complete when the collection holds a copy of every card in it: every card identity (`oracle_id`) among the set's printings in the card data, in any of its printings in that set and in any finish. So a showcase or borderless copy counts for its card, the basic lands count once each however many printings of them the set has, and a copy of the same card from another set (a reprint) doesn't count. A set's total is its number of card identities (Duskmourn: 276, of 417 printings). Copies in decks count: this is what's owned, not what's free (§4.3). Totals follow the card data, so a new set appears after a card-data refresh (§4.2).
+- **Counted when asked**: `GET /api/sets` (the sets with an owned copy) and `GET /api/sets/:code` (a set and its cards) count from `cards` and `collection` on each request. No totals are stored, and there's no migration.
+- **Percentages** round down, so only a complete set shows 100% (275 / 276 is 99%), and a set with cards owned but under 1% shows "<1%" (1 / 1,746 of Secret Lair).
+- **Sets page** (`/sets`, **Sets** in the header after Library): one row per set with at least one owned copy, whatever its type (promo, commander, and Secret Lair sets too). Each row has the name, code, type, release month (the set's earliest printing), a progress bar, owned / total, and the percentage; a complete set's bar is gold, with a check mark.
+  - Sorts: completion (highest first, the default, by the exact fraction), release date (newest first), name, or cards owned (most first). Ties go to the newer set.
+  - A filter box matches a set's name or code ("No sets match" when none do). The sort and filter stay in the address, so coming back from a set keeps them.
+  - With nothing owned, it says sets appear once cards are scanned or imported, with links to Scan and Library.
+- **Set page** (`/sets/:code`: any set in the card data, owned or not; the code matches in any case): **← Sets**, the set's name, code, type, and release date, then the same bar and numbers.
+  - **All | Missing only**, kept in the address.
+  - One row per card, at its lowest collector number in the set, in number order (2 before 10, 7 before 7a). A row shows that printing's number, name, mana cost, and rarity, and the copies owned across the card's printings in the set, all finishes ("✓ 2"). A missing card is dimmed and says "missing".
+  - A row opens the card detail drawer (§5.2.5) on that printing. Adding or removing a copy there updates the page.
+  - The whole set is one list, without pages (The List's 5,258 cards too). With Missing only on a complete set, it says the set is complete. A code that's no set shows "No set with that code" (404).
+- **Later**: set symbols (they need Scryfall's set list), a card-image grid, and filtering by set type.
 
 ## 6. Error handling
 - **Scryfall client**: every request sends `User-Agent: Binder/0.1 (personal)` and `Accept: application/json`. A single-flight queue enforces ≥ 100 ms between requests. On 429, back off exponentially (1 s, 2 s, 4 s), and after 3 retries give up and pause the queue for 8 s. The bulk download gives up when no data has come for 60 s (30 minutes at most in all). Network errors are marked `offline` for UI messaging.
@@ -371,6 +388,7 @@ Vitest, test-first for logic modules.
 - **Decklists**: parse and serialize round-trips for each format, plus the resolution order.
 - **Matcher**: synthetic OCR outputs → decisions (exact set+number, name-only, ambiguous, junk).
 - **Routes**: Hono `app.request()` against an in-memory database seeded from fixtures. Covers collection CRUD, deck CRUD, buy list, library search, and scan item lifecycle (with the OCR client stubbed).
+- **Sets**: the completion counts (a showcase copy counts for its card, a reprint from another set doesn't, the basic lands once each, any finish, number order) and both routes (a set with nothing owned, an unknown code), plus the page's percentages, sorts, and filter as plain functions in `src/web/lib/sets.ts`.
 - **Brainstorm**: a local fake of the Messages API (`tests/helpers/fake-anthropic.ts`) streams scripted answers in the wire format the SDK parses, so the chat loop, the tools, and the routes are tested without a key or any call to Anthropic.
 - **Binder.app**: its paths, links, and messages are unit-tested, as are `startBinder` and the library move; the packaged app is checked end to end on a copy of the library with Chromium's fake camera (the M9 plan's Task 5): its window, auto mode through the OCR helper inside it, closing and opening it again, and quitting.
 - **Manual**: the scanner end-to-end with the iPhone (in Binder.app too), and brainstorm with a real key.
@@ -386,5 +404,6 @@ Each milestone ends with a working app.
 7. **Deck scanning and polish**: scanning into a deck, the Settings backups section, and the fixes first use asked for.
 8. **Polish**: the follow-ups left in `docs/plans/m*-followups.md`, empty states, keyboard shortcuts.
 9. **Binder.app**: a Mac app with its own window and menu-bar icon, and the library in Application Support (§3.4).
+10. **Sets**: the Sets page and each set's page, showing how complete the collection is (§5.8).
 
 Implementation plans are written per milestone.
