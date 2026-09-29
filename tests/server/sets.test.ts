@@ -100,10 +100,22 @@ describe('getSetDetail', () => {
   })
 
   it('orders collector numbers by their digits as numbers: 2 before 10, A25-99 before A25-101', () => {
-    for (const number of ['10', 'A25-101', '2', '7a', 'A25-99', '7', '1★']) {
+    for (const number of ['10', '2X2-17', 'A25-101', '123p', '2', '7a', '123', 'A25-99', '2X2-9', '7', '1★']) {
       add(`num ${number}`, { set: 'num', set_name: 'Numbers', released_at: '2020-01-01', name: `Card ${number}`, collector_number: number })
     }
-    expect(getSetDetail(db, 'num')?.cards.map((card) => card.collectorNumber)).toEqual(['1★', '2', '7', '7a', '10', 'A25-99', 'A25-101'])
+    expect(getSetDetail(db, 'num')?.cards.map((card) => card.collectorNumber)).toEqual([
+      '1★',
+      '2',
+      '2X2-9',
+      '2X2-17',
+      '7',
+      '7a',
+      '10',
+      '123',
+      '123p',
+      'A25-99',
+      'A25-101',
+    ])
   })
 
   it('shows a set with nothing owned, and matches the code in any case', () => {

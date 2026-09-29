@@ -1,3 +1,4 @@
+import { useLayoutEffect, useMemo } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router'
 import type { SetCard } from '../../shared/types.ts'
 import { ManaText } from '../components/ManaText.tsx'
@@ -18,6 +19,13 @@ export function SetPage() {
   const back = `/sets${state?.back ? `?${state.back}` : ''}`
   const missingOnly = params.get('show') === 'missing'
   const { data: set, error, isPending } = useSet(code)
+  // A set opens at its top. The router leaves the window where the last page had it, and a set seen in the last few
+  // minutes shows its whole table at once, so it would open partway down its cards. A layout effect scrolls before that
+  // paints; keyed on the code alone, so All | Missing only, the card drawer, and a refetch leave the scroll alone. The
+  // braces matter: Chromium's scrollTo returns a promise, which React would take for a cleanup and call on leaving.
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [code])
 
   const show = (missing: boolean) =>
     // Keeps the history entry's state, so ← Sets still knows the list's address after a switch.
@@ -87,7 +95,31 @@ export function SetPage() {
 
 /** The set's cards as a table; the whole set at once, without pages (The List's 5,258 cards too). */
 function CardList({ cards }: { cards: readonly SetCard[] }) {
-  const drawer = useCardDrawer()
+  // The drawer's value changes with the card it shows, so this re-renders on every open and close. The rows depend
+  // only on the cards and the stable `open`, so they're kept, rather than re-rendering thousands of them each time.
+  const { open } = useCardDrawer()
+  const rows = useMemo(
+    () =>
+      cards.map((card) => {
+        const owned = card.copies > 0
+        return (
+          <tr key={card.cardId} onClick={() => open(card.cardId)} className="cursor-pointer hover:bg-stone-900">
+            <td className={`px-3 py-2 font-mono text-xs ${owned ? 'text-stone-400' : 'text-stone-600'}`}>{card.collectorNumber}</td>
+            <td className="px-3 py-2">
+              <div className={`flex items-center gap-2 ${owned ? '' : 'opacity-45'}`}>
+                <span className="text-stone-100">{card.name}</span>
+                <ManaText text={card.manaCost} className="shrink-0 text-xs" />
+              </div>
+            </td>
+            <td className={`px-3 py-2 capitalize ${owned ? 'text-stone-400' : 'text-stone-600'}`}>{card.rarity}</td>
+            <td className="px-3 py-2 text-right tabular-nums">
+              {owned ? <span className="text-emerald-300">✓ {card.copies}</span> : <span className="text-stone-600">missing</span>}
+            </td>
+          </tr>
+        )
+      }),
+    [cards, open],
+  )
   return (
     <div className="overflow-x-auto rounded-lg border border-stone-800">
       <table className="w-full min-w-[32rem] text-left text-sm">
@@ -99,26 +131,7 @@ function CardList({ cards }: { cards: readonly SetCard[] }) {
             <th className="px-3 py-2 text-right font-medium">Copies</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-stone-800/70">
-          {cards.map((card) => {
-            const owned = card.copies > 0
-            return (
-              <tr key={card.cardId} onClick={() => drawer.open(card.cardId)} className="cursor-pointer hover:bg-stone-900">
-                <td className={`px-3 py-2 font-mono text-xs ${owned ? 'text-stone-400' : 'text-stone-600'}`}>{card.collectorNumber}</td>
-                <td className="px-3 py-2">
-                  <div className={`flex items-center gap-2 ${owned ? '' : 'opacity-45'}`}>
-                    <span className="text-stone-100">{card.name}</span>
-                    <ManaText text={card.manaCost} className="shrink-0 text-xs" />
-                  </div>
-                </td>
-                <td className={`px-3 py-2 capitalize ${owned ? 'text-stone-400' : 'text-stone-600'}`}>{card.rarity}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {owned ? <span className="text-emerald-300">✓ {card.copies}</span> : <span className="text-stone-600">missing</span>}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
+        <tbody className="divide-y divide-stone-800/70">{rows}</tbody>
       </table>
     </div>
   )

@@ -59,5 +59,7 @@ export function getSetDetail(db: DB, code: string): SetDetail | null {
     else cards.set(printing.oracleId, printing)
   }
   const list = [...cards.values()]
+  // Counting copies > 0 agrees with listOwnedSets' COUNT(DISTINCT oracle_id) over collection rows only because
+  // collection.quantity is CHECK (quantity > 0): a row always holds a copy, so a set's two pages give the same number.
   return { ...set, owned: list.filter((card) => card.copies > 0).length, total: list.length, cards: list }
 }

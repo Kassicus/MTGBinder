@@ -70,10 +70,11 @@ anything is added, and it adds to your library rather than replacing it. **Expor
 
 **Sets** lists every set you own a card from, with how much of it you have: "85 / 276 30%". A set counts as
 complete when you own one copy of each card in it, in any printing from that set (a showcase or borderless copy counts
-for its card) and any finish; a copy of the same card from another set counts for that set instead. Percentages round
-down, so only a complete set shows 100%, with a gold bar. Sort by completion, release date, name, or cards owned, and
-filter by name or code. Open a set to see every card in collector-number order, the ones you're missing dimmed;
-**Missing only** lists just those. Click a card to add a copy.
+for its card) and any finish; a copy of the same card from another set counts for that set instead. Copies you've put
+in decks count too. Percentages round down, so only a complete set shows 100%, with a gold bar, and a set with cards
+owned but under 1% shows "<1%". Sort by completion, release date, name, or cards owned, and filter by name or code.
+Open a set to see every card in collector-number order, the ones you're missing dimmed; **Missing only** lists just
+those. Click a card to add a copy.
 
 ## Decks
 
