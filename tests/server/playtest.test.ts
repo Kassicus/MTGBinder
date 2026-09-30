@@ -92,7 +92,15 @@ describe('the token search', () => {
 
   it('finds nothing until card data has been imported with tokens, and refuses a query past 100 characters', async () => {
     expect(await search('treasure')).toEqual([])
-    expect((await app.request(`/api/playtest/tokens?q=${'a'.repeat(101)}`)).status).toBe(400)
+    const [status, code] = await error(await app.request(`/api/playtest/tokens?q=${'a'.repeat(101)}`))
+    expect([status, code]).toEqual([400, 'bad_request'])
+  })
+
+  it('finds nothing for a request without a query', async () => {
+    addTokens(db)
+    const res = await app.request('/api/playtest/tokens')
+    expect(res.status).toBe(200)
+    expect(await body<CardData[]>(res)).toEqual([])
   })
 })
 

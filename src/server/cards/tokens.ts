@@ -1,4 +1,5 @@
 import type { DB } from '../db/index.ts'
+import type { CardRow } from './map.ts'
 
 /** One row of `tokens` (spec §4.1): a token or emblem, from its newest paper printing. JSON columns are strings. */
 export interface TokenRow {
@@ -17,11 +18,14 @@ export interface TokenRow {
   card_faces: string | null
 }
 
-/** `tokens` columns in table order. A test asserts this matches TokenRow's keys exactly. */
+/**
+ * `tokens` columns in table order. The typecheck ties each one to a TokenRow key and a CardRow column (they're copied
+ * from `tokens_staging`, a copy of `cards`), and a test checks the table's column order.
+ */
 export const TOKEN_COLUMNS = [
   'oracle_id', 'name', 'layout', 'type_line', 'oracle_text', 'power', 'toughness', 'colors', 'image_small',
   'image_normal', 'card_faces',
-] as const satisfies readonly (keyof TokenRow)[]
+] as const satisfies readonly (keyof TokenRow & keyof CardRow)[]
 
 /** Which printing of a token `tokens` keeps (best first): not dated in the future, in English, newest. */
 const TOKEN_PRINTING_ORDER = `released_at > date('now') ASC, lang <> 'en' ASC, released_at DESC, id ASC`

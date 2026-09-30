@@ -110,10 +110,11 @@ for each seat (or **Nobody** for seat 2), who goes first, and starting life, or 
   a card for everything else: counters, flip, face down, attach, a token copy, an ability on the stack, or move it.
 - **Libraries**: click to draw; right-click to draw several, look at the top cards (scry and surveil), search, mill,
   reveal the top card, or shuffle. Click a graveyard or exile to see its cards and drag them out.
-- **Tokens**: right-click a card (or a spell on the stack) to make one of the tokens or emblems it makes, pictured, in
-  one click. **Create token…** (in a card's menu, or right-click an empty battlefield) searches every token and
-  emblem Scryfall has, and keeps a form for anything else. Emblems go to the command zone. Card data imported by an
-  older Binder has no tokens; it refreshes by itself at the next start.
+- **Tokens**: right-click a card on the battlefield (or a spell on the stack) to make one of the tokens or emblems it
+  makes, pictured, in one click. **Create token…** (in a card's menu, or right-click an empty battlefield) searches
+  every paper token and emblem Scryfall has, and keeps a form for anything else. Emblems go to the command zone. Card
+  data imported by an older Binder has no tokens; it refreshes by itself at the next start. A game started before the
+  card data has tokens has none; **Rematch** picks them up.
 - **Commander**: commanders start in the command zone, and their tax counts itself. A commander going to a graveyard,
   exile, a hand, or a library asks **Command zone instead?** Commander damage is entered in each seat's panel.
 - **Undo** (⌘Z) takes back anything, back to the mulligans. **Log** tells the game as the seat you're viewing would

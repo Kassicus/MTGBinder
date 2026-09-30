@@ -232,7 +232,7 @@ describe('moving cards', () => {
     expect(apply(again, { type: 'move', ids: ['t1'], to: { zone: 'command' } }).cards['t1']).toBeUndefined()
   })
 
-  it("puts an emblem in its seat's command zone, where it stays; anywhere else but the battlefield, it vanishes", () => {
+  it("puts an emblem in its seat's command zone, where it stays; anywhere else but the battlefield or the stack, it vanishes", () => {
     let g = apply(playing(), { type: 'token', seat: 1, token: cardData('Elspeth, Knight-Errant Emblem', 'emblem'), count: 2 })
     expect(g.seats[1]!.command).toEqual(['2-c1', 't1', 't2'])
     expect(g.cards['t1']).toMatchObject({ zone: 'command', owner: 1, controller: 1, token: true, pos: null })

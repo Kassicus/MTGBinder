@@ -422,6 +422,7 @@ export function TokenDialog({ onSubmit, onClose }: { onSubmit: (token: CardData,
           <input
             data-autofocus
             value={query}
+            maxLength={100}
             placeholder="Treasure, Spirit, Elspeth…"
             onChange={(e) => setQuery(e.target.value)}
             className={field}
@@ -447,6 +448,11 @@ export function TokenDialog({ onSubmit, onClose }: { onSubmit: (token: CardData,
         )}
         {query.trim() !== '' && found.isSuccess && !found.isPlaceholderData && results.length === 0 && (
           <p className="text-stone-500">No token or emblem by that name. Make it below.</p>
+        )}
+        {query.trim() !== '' && found.isError && (
+          <p role="alert" className="text-red-300">
+            Couldn't search the tokens: {found.error.message}. Make it below.
+          </p>
         )}
         {picked && (
           <form

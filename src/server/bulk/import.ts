@@ -37,7 +37,8 @@ const isDatabaseError = (err: unknown) =>
  * `card_tokens` in that transaction. Any failure (truncated gzip, malformed line, nothing importable) leaves `cards`
  * and the tokens untouched.
  * `meta` entries (null deletes the key) are written in that same transaction, so they change only if the merge commits.
- * The staging table is a TEMP table, private to this connection, so imports on other connections can't disturb it.
+ * The staging tables (cards, tokens, and the cards' links to tokens) are TEMP tables, private to this connection, so
+ * imports on other connections can't disturb them.
  */
 export async function importCardsFile(
   db: DB,
@@ -118,10 +119,9 @@ async function* readLines(lines: AsyncIterable<string>): AsyncGenerator<string> 
 /**
  * In one transaction: upserts staging into `cards`, deletes printings Scryfall dropped unless something references
  * them, rebuilds names, replaces the tokens, drops the staging tables, and writes the meta entries plus the card data
- * version. When a card a
- * deck line uses is missing from the new data, all its printings are kept, since a line on the default printing names
- * only the card; the name rebuild then picks a default printing from those. When the card is still there, its dropped
- * printings go like any other, so a frozen price can't win the buy list.
+ * version. When a card a deck line uses is missing from the new data, all its printings are kept, since a line on the
+ * default printing names only the card; the name rebuild then picks a default printing from those. When the card is
+ * still there, its dropped printings go like any other, so a frozen price can't win the buy list.
  */
 function mergeStaging(db: DB, meta: Record<string, string | null>): void {
   const columns = CARD_COLUMNS.join(', ')
