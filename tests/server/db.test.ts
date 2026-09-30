@@ -15,7 +15,8 @@ describe('database', () => {
     const names = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all() as string[]
     for (const table of [
       'cards', 'card_names', 'card_names_fts', 'collection', 'decks', 'deck_cards',
-      'scan_items', 'ai_threads', 'ai_messages', 'meta', 'schema_migrations', 'playtest_game', 'playtest_actions',
+      'scan_items', 'ai_threads', 'ai_messages', 'meta', 'schema_migrations', 'playtest_game', 'playtest_actions', 'tokens',
+      'card_tokens',
     ]) {
       expect(names).toContain(table)
     }

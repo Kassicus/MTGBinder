@@ -13,7 +13,7 @@ import { getMeta, setMeta } from '../../src/server/db/meta.ts'
 import { ScryfallError, type ScryfallClient } from '../../src/server/scryfall/client.ts'
 import type { ScryfallCard } from '../../src/server/scryfall/types.ts'
 import { count, createTestDb, fixtureRows, tableExists } from '../helpers/db.ts'
-import { fixtureCard, loadFixtureCards, syntheticCard } from '../helpers/fixtures.ts'
+import { fixtureCard, loadFixtureCards, loadTokenFixtures, syntheticCard } from '../helpers/fixtures.ts'
 
 const SOURCE_UPDATED_AT = '2026-09-26T09:05:51.554+00:00'
 
@@ -197,6 +197,75 @@ describe('importCardsFile', () => {
     lines.splice(2, 0, '{"object":"card", truncated')
     await expect(importCardsFile(db, writeFile(gzLines(lines)), undefined, { bulk_updated_at: 'x' })).rejects.toThrow(/line 3/)
     expect(getMeta(db, 'bulk_updated_at')).toBeNull()
+  })
+})
+
+describe('importing tokens', () => {
+  const all = (db: ReturnType<typeof openDb>, sql: string) => db.prepare(sql).pluck().all() as string[]
+  const TOKENS = [
+    'Beast (token)',
+    'Elspeth, Knight-Errant Emblem (emblem)',
+    'Human Cleric (token)',
+    'Incubator // Phyrexian (double_faced_token)',
+    'Insect (token)',
+    'Treasure (token)',
+    'Wicked // Cursed (flip)',
+  ]
+
+  it('puts tokens and emblems in tokens, never in cards or search, and links each card to the tokens it makes', async () => {
+    const db = openDb(':memory:')
+    const result = await importCardsFile(db, writeFile(gzCards([...loadFixtureCards(), ...loadTokenFixtures()])))
+    expect(result).toEqual({ imported: 63, skipped: 8 })
+    expect(all(db, "SELECT name || ' (' || layout || ')' FROM tokens ORDER BY name")).toEqual(TOKENS)
+    const names = loadTokenFixtures().filter((c) => c.layout !== 'normal').map((c) => c.name)
+    expect(db.prepare(`SELECT count(*) FROM cards WHERE name IN (${names.map(() => '?').join(', ')})`).pluck().get(...names)).toBe(0)
+    expect(autocomplete(db, 'Wicked')).toEqual([])
+    expect(autocomplete(db, 'Elspeth').map((c) => c.name)).toEqual(['Elspeth, Knight-Errant'])
+    // Elspeth also makes Soldiers, whose printing isn't in the data: that link is dropped.
+    expect(
+      all(db, `SELECT n.name || ' → ' || t.name FROM card_tokens ct
+               JOIN card_names n ON n.oracle_id = ct.oracle_id JOIN tokens t ON t.oracle_id = ct.token_oracle_id ORDER BY 1`),
+    ).toEqual([
+      'Beast Within → Beast',
+      'Elspeth, Knight-Errant → Elspeth, Knight-Errant Emblem',
+      'Garruk Wildspeaker → Beast',
+      'Grist, the Hunger Tide → Insect',
+      'Smothering Tithe → Treasure',
+      'Westvale Abbey // Ormendahl, Profane Prince → Human Cleric',
+      "Witch's Mark → Wicked // Cursed",
+    ])
+    expect(getMeta(db, 'card_data_version')).toBe(String(CARD_DATA_VERSION))
+  })
+
+  it("keeps each token's newest English printing, passing over one dated in the future", async () => {
+    const db = openDb(':memory:')
+    const lines = loadTokenFixtures()
+    const beast = lines.find((c) => c.name === 'Beast' && c.set === 'tmic')!
+    const treasure = lines.find((c) => c.name === 'Treasure')!
+    const fake = (name: string) => ({ small: `https://example.test/${name}-small.jpg`, normal: `https://example.test/${name}.jpg` })
+    const future = { ...beast, id: '00000000-0000-4000-8000-00000000f001', released_at: '2999-01-01', image_uris: fake('future') }
+    const japanese = { ...treasure, id: '00000000-0000-4000-8000-00000000f002', lang: 'ja', released_at: '2026-01-01', image_uris: fake('ja') }
+    await importCardsFile(db, writeFile(gzCards([...loadFixtureCards(), ...lines, future, japanese])))
+    const image = (name: string) => db.prepare('SELECT image_small FROM tokens WHERE name = ?').pluck().get(name) as string
+    // The newest Beast in the fixture (tmsc, 2026-06-26), not the one "from" 2999.
+    expect(image('Beast')).toBe(lines.find((c) => c.name === 'Beast' && c.set === 'tmsc')!.image_uris!.small)
+    expect(image('Treasure')).toBe(treasure.image_uris!.small)
+    // A double-faced token's image is its front's, and its faces are kept.
+    const incubator = db.prepare("SELECT image_small, card_faces FROM tokens WHERE name = 'Incubator // Phyrexian'").get() as { image_small: string; card_faces: string }
+    expect(incubator.image_small).toContain('/front/')
+    expect((JSON.parse(incubator.card_faces) as Array<{ name: string }>).map((f) => f.name)).toEqual(['Incubator', 'Phyrexian'])
+  })
+
+  it('replaces the tokens with each import, and leaves them alone when an import fails', async () => {
+    const db = openDb(':memory:')
+    await importCardsFile(db, writeFile(gzCards([...loadFixtureCards(), ...loadTokenFixtures()])))
+    await expect(importCardsFile(db, writeFile(gzLines([JSON.stringify(fixtureCard('Sol Ring')), '{not json'])))).rejects.toThrow(
+      'Malformed card data on line 2',
+    )
+    expect([count(db, 'tokens'), count(db, 'card_tokens')]).toEqual([7, 7])
+    expect(tableExists(db, 'tokens_staging') || tableExists(db, 'card_tokens_staging')).toBe(false)
+    await importCardsFile(db, writeFile(gzCards(loadFixtureCards())))
+    expect([count(db, 'tokens'), count(db, 'card_tokens')]).toEqual([0, 0])
   })
 })
 

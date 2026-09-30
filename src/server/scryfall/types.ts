@@ -23,6 +23,15 @@ export interface ScryfallCardFace {
   image_uris?: ScryfallImageUris
 }
 
+/** A card related to another (`all_parts`): a token it makes, an emblem, a meld half, or a card it names. */
+export interface ScryfallRelatedCard {
+  id: string
+  /** token, meld_part, meld_result, or combo_piece. */
+  component: string
+  name: string
+  type_line?: string
+}
+
 export interface ScryfallCard {
   id: string
   oracle_id?: string
@@ -59,6 +68,7 @@ export interface ScryfallCard {
   promo: boolean
   digital: boolean
   oversized?: boolean
+  all_parts?: ScryfallRelatedCard[]
 }
 
 export interface ScryfallBulkData {

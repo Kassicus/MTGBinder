@@ -15,6 +15,18 @@ export function fixtureCard(name: string, set?: string): ScryfallCard {
   return card
 }
 
+let tokenCache: ScryfallCard[] | null = null
+
+/**
+ * The pinned token fixture (fresh deep copy on every call): tokens the fixture cards make (Treasure, Beast twice,
+ * Insect, Human Cleric), Elspeth, Knight-Errant and her emblem, Witch's Mark and its Role (Wicked // Cursed), and a
+ * double-faced token (Incubator // Phyrexian). Real Scryfall lines.
+ */
+export function loadTokenFixtures(): ScryfallCard[] {
+  tokenCache ??= JSON.parse(fs.readFileSync(new URL('../fixtures/tokens.json', import.meta.url), 'utf8')) as ScryfallCard[]
+  return structuredClone(tokenCache)
+}
+
 let syntheticCount = 0
 
 /** A fake importable card based on Grizzly Bears, with unique ids, plus any overrides. */

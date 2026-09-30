@@ -7,8 +7,9 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import zlib from 'node:zlib'
 import type { BulkState, BulkStatus } from '../../shared/types.ts'
 import { localDate } from '../backup.ts'
-import { CARD_COLUMNS, CARD_DATA_VERSION, scryfallToRow, shouldImport, type CardRow } from '../cards/map.ts'
+import { CARD_COLUMNS, CARD_DATA_VERSION, scryfallToRow, shouldImport, shouldImportToken, tokenParts, type CardRow } from '../cards/map.ts'
 import { insertCardRows, rebuildCardNames } from '../cards/repo.ts'
+import { createTokenStaging, dropTokenStaging, insertTokenLinks, replaceTokens } from '../cards/tokens.ts'
 import type { DB } from '../db/index.ts'
 import { getMeta, setMeta } from '../db/meta.ts'
 import { ScryfallError, type ScryfallClient } from '../scryfall/client.ts'
@@ -32,7 +33,9 @@ const isDatabaseError = (err: unknown) =>
 
 /**
  * Streams a gzipped JSONL file of Scryfall cards into a staging table, then merges it into `cards` in one
- * transaction. Any failure (truncated gzip, malformed line, nothing importable) leaves `cards` untouched.
+ * transaction. Tokens and emblems, and the cards' links to them, are staged apart and replace `tokens` and
+ * `card_tokens` in that transaction. Any failure (truncated gzip, malformed line, nothing importable) leaves `cards`
+ * and the tokens untouched.
  * `meta` entries (null deletes the key) are written in that same transaction, so they change only if the merge commits.
  * The staging table is a TEMP table, private to this connection, so imports on other connections can't disturb it.
  */
@@ -44,19 +47,26 @@ export async function importCardsFile(
 ): Promise<{ imported: number; skipped: number }> {
   // Unqualified `cards_staging` below resolves to this temp table (SQLite searches temp before main).
   db.exec('DROP TABLE IF EXISTS temp.cards_staging; CREATE TEMP TABLE cards_staging AS SELECT * FROM main.cards WHERE 0')
+  createTokenStaging(db)
   const input = fs.createReadStream(file)
   const gunzip = zlib.createGunzip()
   input.on('error', (err) => gunzip.destroy(err))
   try {
     const lines = readline.createInterface({ input: input.pipe(gunzip), crlfDelay: Infinity })
     let batch: CardRow[] = []
+    let tokens: CardRow[] = []
+    let links: Array<[string, string]> = []
     let imported = 0
     let skipped = 0
     let lineNo = 0
     const flush = () => {
       insertCardRows(db, 'cards_staging', batch)
+      insertCardRows(db, 'tokens_staging', tokens)
+      insertTokenLinks(db, links)
       imported += batch.length
       batch = []
+      tokens = []
+      links = []
       onProgress?.(imported)
     }
     for await (const line of readLines(lines)) {
@@ -68,12 +78,19 @@ export async function importCardsFile(
       } catch {
         throw new Error(`Malformed card data on line ${lineNo}`)
       }
+      // A token counts as skipped: it isn't one of the printings imported into `cards`.
       const row = shouldImport(card) ? scryfallToRow(card) : null
-      if (row) batch.push(row)
-      else skipped++
+      if (row) {
+        batch.push(row)
+        for (const token of tokenParts(card)) links.push([row.oracle_id, token])
+      } else {
+        skipped++
+        const token = shouldImportToken(card) ? scryfallToRow(card) : null
+        if (token) tokens.push(token)
+      }
       if (batch.length >= BATCH_SIZE) flush()
     }
-    if (batch.length > 0) flush()
+    if (batch.length > 0 || tokens.length > 0 || links.length > 0) flush()
     if (imported === 0) throw new Error('Card data file contained no importable cards')
     mergeStaging(db, meta)
     return { imported, skipped }
@@ -81,6 +98,7 @@ export async function importCardsFile(
     input.destroy()
     gunzip.destroy()
     db.exec('DROP TABLE IF EXISTS temp.cards_staging')
+    dropTokenStaging(db)
   }
 }
 
@@ -99,7 +117,8 @@ async function* readLines(lines: AsyncIterable<string>): AsyncGenerator<string> 
 
 /**
  * In one transaction: upserts staging into `cards`, deletes printings Scryfall dropped unless something references
- * them, rebuilds names, drops the staging table, and writes the meta entries plus the card data version. When a card a
+ * them, rebuilds names, replaces the tokens, drops the staging tables, and writes the meta entries plus the card data
+ * version. When a card a
  * deck line uses is missing from the new data, all its printings are kept, since a line on the default printing names
  * only the card; the name rebuild then picks a default printing from those. When the card is still there, its dropped
  * printings go like any other, so a frozen price can't win the buy list.
@@ -121,7 +140,9 @@ function mergeStaging(db: DB, meta: Record<string, string | null>): void {
                         AND oracle_id NOT IN (SELECT oracle_id FROM cards_staging))
                AND id NOT IN (SELECT card_id FROM scan_items WHERE card_id IS NOT NULL)`)
     rebuildCardNames(db)
+    replaceTokens(db)
     db.exec('DROP TABLE temp.cards_staging')
+    dropTokenStaging(db)
     setMeta(db, 'card_data_version', String(CARD_DATA_VERSION))
     for (const [key, value] of Object.entries(meta)) setMeta(db, key, value)
   })()

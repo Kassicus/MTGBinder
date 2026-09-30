@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { CARD_COLUMNS, canonColors, scryfallToRow, shouldImport, toNum } from '../../src/server/cards/map.ts'
+import { CARD_COLUMNS, canonColors, isToken, scryfallToRow, shouldImport, shouldImportToken, tokenParts, toNum } from '../../src/server/cards/map.ts'
+import { TOKEN_COLUMNS } from '../../src/server/cards/tokens.ts'
 import { openDb } from '../../src/server/db/index.ts'
-import { fixtureCard, syntheticCard } from '../helpers/fixtures.ts'
+import { fixtureCard, loadTokenFixtures, syntheticCard } from '../helpers/fixtures.ts'
 
 function row(name: string, set?: string) {
   const r = scryfallToRow(fixtureCard(name, set))
@@ -122,5 +123,40 @@ describe('shouldImport', () => {
     expect(shouldImport(syntheticCard({ layout: 'double_faced_token' }))).toBe(false)
     expect(shouldImport(syntheticCard({ layout: 'emblem' }))).toBe(false)
     expect(shouldImport(syntheticCard({ layout: 'art_series' }))).toBe(false)
+  })
+})
+
+describe('tokens', () => {
+  const token = (name: string) => loadTokenFixtures().find((c) => c.name === name)!
+
+  it('counts token, double-faced token, and emblem layouts as tokens, and a Role printed as a flip card', () => {
+    for (const name of ['Treasure', 'Incubator // Phyrexian', 'Elspeth, Knight-Errant Emblem', 'Wicked // Cursed']) {
+      expect(isToken(token(name))).toBe(true)
+      expect(shouldImport(token(name))).toBe(false)
+      expect(shouldImportToken(token(name))).toBe(true)
+    }
+    expect(isToken(fixtureCard('Lightning Bolt', 'm10'))).toBe(false)
+    expect(shouldImportToken(fixtureCard('Lightning Bolt', 'm10'))).toBe(false)
+  })
+
+  it('imports only paper tokens', () => {
+    expect(shouldImportToken({ ...token('Treasure'), digital: true })).toBe(false)
+    expect(shouldImportToken({ ...token('Treasure'), games: ['arena'] })).toBe(false)
+    expect(shouldImportToken({ ...token('Treasure'), oversized: true })).toBe(false)
+  })
+
+  it("finds the tokens a card makes, and a planeswalker's emblem, but not the reminder cards it lists", () => {
+    const elspeth = token('Elspeth, Knight-Errant')
+    expect(tokenParts(elspeth)).toEqual(['6a62619f-a432-4314-b018-7eacda9252a7', 'de12b41f-abc6-4057-bda2-ea1d5e60321b'])
+    expect(tokenParts(token("Witch's Mark"))).toEqual(['a9b7040e-cd24-42cc-b043-9af8c557da6a'])
+    const reminder = { id: 'r', component: 'combo_piece', name: 'The Monarch', type_line: 'Card' }
+    expect(tokenParts({ ...elspeth, all_parts: [reminder] })).toEqual([])
+    expect(tokenParts(fixtureCard('Lightning Bolt', 'm10'))).toEqual([])
+  })
+
+  it("keeps TOKEN_COLUMNS in the tokens table's order", () => {
+    const db = openDb(':memory:')
+    const columns = db.pragma('table_info(tokens)') as Array<{ name: string }>
+    expect(columns.map((c) => c.name)).toEqual([...TOKEN_COLUMNS])
   })
 })

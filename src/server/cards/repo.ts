@@ -8,7 +8,7 @@ import { CARD_COLUMNS, type CardRow, type StoredFace } from './map.ts'
  * Inserts rows with INSERT OR REPLACE. Only for the import staging table and for seeding test/dev databases:
  * REPLACE deletes the old row first, which would break foreign keys on a populated `cards` table.
  */
-export function insertCardRows(db: DB, table: 'cards' | 'cards_staging', rows: readonly CardRow[]): void {
+export function insertCardRows(db: DB, table: 'cards' | 'cards_staging' | 'tokens_staging', rows: readonly CardRow[]): void {
   const stmt = db.prepare(
     `INSERT OR REPLACE INTO ${table} (${CARD_COLUMNS.join(', ')}) VALUES (${CARD_COLUMNS.map((c) => `@${c}`).join(', ')})`,
   )

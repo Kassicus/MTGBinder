@@ -71,12 +71,13 @@ export const CARD_COLUMNS = [
 ] as const satisfies readonly (keyof CardRow)[]
 
 /**
- * Version of what scryfallToRow stores. Bump it when a mapping change needs data that only a new import can supply
- * (2: `set_type`); card data imported by an older version then counts as stale and refreshes at the next start.
+ * Version of what the import stores. Bump it when a mapping change needs data that only a new import can supply
+ * (2: `set_type`; 3: tokens and the cards that make them); card data imported by an older version then counts as
+ * stale and refreshes at the next start.
  */
-export const CARD_DATA_VERSION = 2
+export const CARD_DATA_VERSION = 3
 
-const SKIPPED_LAYOUTS = new Set(['token', 'double_faced_token', 'emblem', 'art_series'])
+const TOKEN_LAYOUTS = new Set(['token', 'double_faced_token', 'emblem'])
 
 /** Numeric value of a power/toughness/loyalty string, or null when it isn't a plain number ("*", "1+*", "X"). */
 export function toNum(value: string | null | undefined): number | null {
@@ -84,9 +85,38 @@ export function toNum(value: string | null | undefined): number | null {
   return Number(value)
 }
 
-/** Whether a bulk-data card belongs in the local mirror (real paper cards only). */
+/** Whether a bulk-data card is a paper printing: not digital, played on paper, and not oversized. */
+function isPaperPrinting(card: ScryfallCard): boolean {
+  return !card.digital && card.games.includes('paper') && card.oversized !== true
+}
+
+/**
+ * Whether a bulk-data card is a token or an emblem (spec §4.2): a token, double-faced token, or emblem layout, or a
+ * type line starting "Token" (a Role, which Scryfall prints as a flip card with a Role at each end).
+ */
+export function isToken(card: ScryfallCard): boolean {
+  const typeLine = card.type_line ?? card.card_faces?.[0]?.type_line ?? ''
+  return TOKEN_LAYOUTS.has(card.layout) || /^Token\b/.test(typeLine)
+}
+
+/** Whether a bulk-data card belongs in `cards` (real paper cards only: no tokens, emblems, or art cards). */
 export function shouldImport(card: ScryfallCard): boolean {
-  return !card.digital && card.games.includes('paper') && card.oversized !== true && !SKIPPED_LAYOUTS.has(card.layout)
+  return isPaperPrinting(card) && !isToken(card) && card.layout !== 'art_series'
+}
+
+/** Whether a bulk-data card belongs in `tokens`: a paper token or emblem. */
+export function shouldImportToken(card: ScryfallCard): boolean {
+  return isPaperPrinting(card) && isToken(card)
+}
+
+/**
+ * The printings of the tokens a card makes, from its `all_parts`: each part marked `token`, and each emblem (Scryfall
+ * marks a planeswalker's emblem `combo_piece`, like the reminder cards it lists that aren't made by the card).
+ */
+export function tokenParts(card: ScryfallCard): string[] {
+  return (card.all_parts ?? [])
+    .filter((p) => p.id !== card.id && (p.component === 'token' || (p.component === 'combo_piece' && /^Emblem\b/.test(p.type_line ?? ''))))
+    .map((p) => p.id)
 }
 
 /** Flattens a Scryfall card into a `cards` row. Returns null if the card has no oracle id anywhere. */
