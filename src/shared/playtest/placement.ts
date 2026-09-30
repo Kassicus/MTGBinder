@@ -23,11 +23,16 @@ export const ROW_END = 0.94
 const ROW_BAND = 0.12
 /** Each time a full row wraps, the next pass sits this much further from the edge, so the cards stay apart. */
 const WRAP_SHIFT = 0.05
+/** How many passes a full row makes before its cards start sharing spots. */
+const PASSES = 10
+/** How many spots fit along a row, STEP apart from ROW_START to ROW_END. */
+const SLOTS = Math.floor((ROW_END - ROW_START) / STEP + 1e-9) + 1
 
 /**
  * The spot for a card of `kind`, given the spots already taken on that seat's battlefield (the cards there, and any
  * placed earlier in the same move): right of the rightmost card in the row. Once the row is full, the first free spot
- * from the left, on the row's line or, when that's full too, a little further out each pass.
+ * from the left, on the row's line or, when that's full too, a little further out each pass. Once every pass is full,
+ * the row's spots in turn, half a pass out from its line, so the cards keep spreading rather than pile up on one spot.
  */
 export function defaultSpot(kind: CardKind, taken: readonly Pos[]): Pos {
   const y = ROW_Y[kind]
@@ -35,15 +40,23 @@ export function defaultSpot(kind: CardKind, taken: readonly Pos[]): Pos {
   if (inRow.length === 0) return { x: ROW_START, y }
   const right = round(Math.max(...inRow.map((p) => p.x)) + STEP)
   if (right <= ROW_END) return { x: right, y }
-  for (let pass = 0; pass < 10; pass++) {
-    const passY = round(Math.min(0.97, y + WRAP_SHIFT * pass))
-    for (let x = ROW_START; x <= ROW_END + 1e-9; x = round(x + STEP)) {
-      const free = inRow.every((p) => Math.abs(p.x - x) >= STEP / 2 || Math.abs(p.y - passY) >= WRAP_SHIFT / 2)
-      if (free) return { x, y: passY }
+  const passY = (pass: number) => round(Math.min(0.97, y + WRAP_SHIFT * pass))
+  for (let pass = 0; pass < PASSES; pass++) {
+    const line = passY(pass)
+    for (let slot = 0; slot < SLOTS; slot++) {
+      const x = slotX(slot)
+      // Every taken spot counts, not just the row's: the later passes sit beyond the row's band.
+      const free = taken.every((p) => Math.abs(p.x - x) >= STEP / 2 || Math.abs(p.y - line) >= WRAP_SHIFT / 2)
+      if (free) return { x, y: line }
     }
   }
-  return { x: ROW_START, y }
+  // Every pass is full: each card in the band the passes cover moves the next one a spot further along the row.
+  const band = taken.filter((p) => p.y > y - WRAP_SHIFT / 2 && p.y < passY(PASSES - 1) + WRAP_SHIFT / 2).length
+  return clampPos({ x: slotX(band % SLOTS), y: y + WRAP_SHIFT / 2 })
 }
+
+/** The x of a row's spot, counting from its left. */
+const slotX = (slot: number) => round(ROW_START + STEP * slot)
 
 /** Keeps a dragged spot on the battlefield. */
 export function clampPos(pos: Pos): Pos {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { clampPos, defaultSpot, kindOf } from '../../src/shared/playtest/placement.ts'
+import type { Pos } from '../../src/shared/playtest/types.ts'
 
 describe('default spots', () => {
   it('starts each row at its left, lands by the edge and creatures by the middle', () => {
@@ -13,6 +14,13 @@ describe('default spots', () => {
     expect(defaultSpot('creature', [{ x: 0.06, y: 0.8 }, { x: 0.94, y: 0.8 }])).toEqual({ x: 0.13, y: 0.8 })
     const fullRow = Array.from({ length: 13 }, (_, i) => ({ x: Math.round((0.06 + 0.07 * i) * 100) / 100, y: 0.8 }))
     expect(defaultSpot('creature', fullRow)).toEqual({ x: 0.06, y: 0.85 })
+  })
+
+  it.each(['creature', 'land'] as const)('gives each of 60 %ss its own spot on the battlefield, one after another', (kind) => {
+    const spots: Pos[] = []
+    for (let i = 0; i < 60; i++) spots.push(defaultSpot(kind, spots))
+    expect(new Set(spots.map((p) => `${p.x},${p.y}`)).size).toBe(60)
+    expect(spots.filter((p) => p.x < 0.03 || p.x > 0.97 || p.y < 0.03 || p.y > 0.97)).toEqual([])
   })
 
   it('keeps a dropped spot on the battlefield', () => {
