@@ -389,6 +389,23 @@ describe('cards on the battlefield', () => {
     expect(() => apply(g, { type: 'counter', ids: [id], name: ' ', delta: 1 })).toThrow('A counter needs a name')
   })
 
+  it('counts a counter of any name, even one an object already has', () => {
+    let g = playing()
+    const id = firstCreature(g)
+    g = run(
+      g,
+      { type: 'move', ids: [id], to: { zone: 'battlefield', seat: 0 } },
+      { type: 'counter', ids: [id], name: 'hour', delta: 2 },
+      { type: 'counter', ids: [id], name: 'constructor', delta: 1 },
+      { type: 'counter', ids: [id], name: 'toString', delta: 2 },
+      { type: 'setCounter', ids: [id], name: '__proto__', value: 3 },
+    )
+    expect(g.cards[id]!.counters).toEqual({ hour: 2, constructor: 1, toString: 2, ['__proto__']: 3 })
+    expect(Object.keys(g.cards[id]!.counters)).toEqual(['hour', 'constructor', 'toString', '__proto__'])
+    g = run(g, { type: 'counter', ids: [id], name: '__proto__', delta: -3 }, { type: 'counter', ids: [id], name: 'constructor', delta: -1 })
+    expect(Object.keys(g.cards[id]!.counters)).toEqual(['hour', 'toString'])
+  })
+
   it('attaches a card under its host, never in a loop, and a card dropped at its own spot comes off', () => {
     let g = playing()
     const [host, a, b] = hand(g).filter((id) => g.data[id]!.kind === 'creature') as [string, string, string]

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { kindOf } from '../../../shared/playtest/placement.ts'
 import type { CardData, Dest, GameState, SeatIndex } from '../../../shared/playtest/types.ts'
 import { CardView } from './CardView.tsx'
@@ -113,7 +113,7 @@ export function LookDialog({
             className={`flex cursor-grab flex-col items-center gap-1 ${dragging === id ? 'opacity-50' : ''}`}
           >
             <span className="text-xs text-stone-500">{i + 1}</span>
-            <CardView data={game.data[id]!} height={170} large />
+            <CardView data={game.data[id]!} height={220} large />
             <select
               aria-label={`Where ${game.data[id]!.name} goes`}
               value={places[id]}
@@ -183,7 +183,7 @@ export function SearchDialog({
         onChange={(e) => setFilter(e.target.value)}
         className={`mb-3 w-full ${field}`}
       />
-      <ul className="grid max-h-[50dvh] grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3 overflow-y-auto">
+      <ul className="grid max-h-[50dvh] grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 overflow-y-auto">
         {shown.map((id) => {
           const on = chosen.includes(id)
           return (
@@ -194,7 +194,7 @@ export function SearchDialog({
                 onClick={() => setChosen(on ? chosen.filter((x) => x !== id) : [...chosen, id])}
                 className={`rounded-md p-1 ${on ? 'bg-amber-700/40 ring-2 ring-amber-500' : 'hover:bg-stone-800'}`}
               >
-                <CardView data={game.data[id]!} height={160} />
+                <CardView data={game.data[id]!} height={200} />
               </button>
             </li>
           )
@@ -234,24 +234,28 @@ export function SearchDialog({
   )
 }
 
-const COUNTERS = ['+1/+1', '-1/-1', 'loyalty', 'charge', 'time', 'lore', 'shield', 'stun', 'oil']
-
-/** Counters on cards (spec §5.9.4): a named counter added, removed, or set to a number. */
+/**
+ * Counters on cards (spec §5.9.4): one more or one fewer of each counter on the first card, or a counter of any name
+ * (one of the usual ones, one already on the table, or typed) added, removed, or set to a number.
+ */
 export function CounterDialog({
   names,
   current,
+  choices,
   onAdd,
   onSet,
   onClose,
 }: {
   names: string
-  /** The counters already on the first card, to start from. */
+  /** The counters already on the first card. */
   current: Record<string, number>
+  /** The names to offer: the usual counters, then the others on the table. */
+  choices: string[]
   onAdd: (name: string, delta: number) => void
   onSet: (name: string, value: number) => void
   onClose: () => void
 }) {
-  const [name, setName] = useState(Object.keys(current)[0] ?? '+1/+1')
+  const [name, setName] = useState('')
   const [text, setText] = useState('1')
   const n = Number(text)
   const ok = name.trim() !== '' && Number.isInteger(n) && n >= 0 && n <= 999
@@ -260,39 +264,93 @@ export function CounterDialog({
     onClose()
     fn()
   }
+  const nameRef = useRef<HTMLInputElement>(null)
+  // The counters on the card when the dialog opened. One taken down to 0 keeps its row, so the rows under it don't move
+  // up under the pointer.
+  const [kinds] = useState(() => Object.keys(current))
   return (
     <Modal title={`Counters on ${names}`} onClose={onClose}>
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm text-stone-300">
-          Counter
-          <input list="counter-names" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} className={`w-36 ${field}`} />
-          <datalist id="counter-names">
-            {COUNTERS.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-stone-300">
-          How many
-          <input type="number" min={0} value={text} onChange={(e) => setText(e.target.value)} className={`w-20 ${field}`} />
-        </label>
-      </div>
-      {Object.keys(current).length > 0 && (
-        <p className="mt-2 text-xs text-stone-500">
-          Now: {Object.entries(current).map(([k, v]) => `${v} ${k}`).join(', ')}
-        </p>
+      {kinds.length > 0 && (
+        <ul aria-label="Counters on it now" className="mb-4 flex flex-col gap-1">
+          {kinds.map((k) => {
+            const v = Object.hasOwn(current, k) ? current[k]! : 0
+            return (
+              <li key={k} className="flex items-center gap-2 text-sm text-stone-200">
+                <span className="min-w-0 flex-1 truncate">{k}</span>
+                <span className="w-8 text-right font-semibold tabular-nums">{v}</span>
+                {/* These stay open, so a counter can go up or down a few at a time. At 0, − turns off: focus moves to +. */}
+                <button
+                  aria-label={`Remove 1 ${k} counter`}
+                  disabled={v === 0}
+                  onClick={(e) => {
+                    if (v === 1) (e.currentTarget.nextElementSibling as HTMLElement | null)?.focus()
+                    onAdd(k, -1)
+                  }}
+                  className={button}
+                >
+                  −
+                </button>
+                <button aria-label={`Add 1 ${k} counter`} onClick={() => onAdd(k, 1)} className={button}>
+                  +
+                </button>
+              </li>
+            )
+          })}
+        </ul>
       )}
-      <div className="mt-4 flex justify-end gap-2">
-        <button disabled={!ok || n === 0} onClick={() => act(() => onAdd(name.trim(), -n))} className={button}>
-          Remove
-        </button>
-        <button disabled={!ok} onClick={() => act(() => onSet(name.trim(), n))} className={button}>
-          Set to {ok ? n : '…'}
-        </button>
-        <button disabled={!ok || n === 0} onClick={() => act(() => onAdd(name.trim(), n))} className={primary}>
-          Add
-        </button>
-      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (n !== 0) act(() => onAdd(name.trim(), n))
+        }}
+      >
+        <div role="group" aria-label="Counter names" className="mb-3 flex flex-wrap gap-1.5">
+          {choices.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-pressed={name.trim() === c}
+              onClick={() => {
+                setName(c)
+                // So Enter adds it, rather than pressing this button again.
+                nameRef.current?.focus()
+              }}
+              className={`rounded-full border px-2.5 py-0.5 text-xs ${name.trim() === c ? 'border-amber-500 bg-amber-700/40 text-amber-100' : 'border-stone-700 bg-stone-900 text-stone-300 hover:bg-stone-800'}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-sm text-stone-300">
+            Counter
+            <input
+              ref={nameRef}
+              data-autofocus
+              maxLength={40}
+              placeholder="Any name, e.g. hour"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={`w-44 ${field}`}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-stone-300">
+            How many
+            <input type="number" min={0} value={text} onChange={(e) => setText(e.target.value)} className={`w-20 ${field}`} />
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" disabled={!ok || n === 0} onClick={() => act(() => onAdd(name.trim(), -n))} className={button}>
+            Remove
+          </button>
+          <button type="button" disabled={!ok} onClick={() => act(() => onSet(name.trim(), n))} className={button}>
+            Set to {ok ? n : '…'}
+          </button>
+          <button type="submit" disabled={!ok || n === 0} className={primary}>
+            Add
+          </button>
+        </div>
+      </form>
     </Modal>
   )
 }

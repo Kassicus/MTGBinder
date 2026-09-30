@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { attachmentsOf, commanderTax, looseCards, losingReasons, visibleTo } from '../../../shared/playtest/status.ts'
 import type { CardState, SeatIndex } from '../../../shared/playtest/types.ts'
-import { CARD_RATIO, toScreen, type Box } from '../../lib/playtest-board.ts'
+import { CARD_RATIO, handHeight, toScreen, type Box } from '../../lib/playtest-board.ts'
 import type { SaveStatus } from '../../lib/playtest-save.ts'
 import { useBoard } from './board-context.ts'
 import { CardBack, CardView } from './CardView.tsx'
@@ -108,7 +108,7 @@ export function HandStrip({ seat }: { seat: SeatIndex }) {
       </div>
     )
   }
-  const height = Math.round(board.cardHeight * 1.2)
+  const height = handHeight(board.cardHeight)
   const width = height / CARD_RATIO
   // Cards overlap once the hand is wider than the strip.
   const room = (size?.width ?? 0) - width

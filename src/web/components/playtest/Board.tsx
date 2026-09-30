@@ -4,7 +4,7 @@ import { canFlip, looseCards, visibleTo } from '../../../shared/playtest/status.
 import type { Action, CardState, Dest, GameState, SavedGame, SeatIndex } from '../../../shared/playtest/types.ts'
 import { useDecks } from '../../lib/decks.ts'
 import { useEndGame, useStartGame, type GameSession } from '../../lib/playtest.ts'
-import { asksCommandZone, boardKey, cardHeight, cardsInBox, fromScreen, playDest, tapTo } from '../../lib/playtest-board.ts'
+import { asksCommandZone, boardKey, cardHeight, cardsInBox, counterChoices, fromScreen, menuCounters, playDest, steadyCardHeight, tapTo } from '../../lib/playtest-board.ts'
 import { GO_TO_MS, isTypingTarget } from '../../lib/shortcuts.ts'
 import { BoardContext, type BoardApi, type DragSource } from './board-context.ts'
 import { CardView } from './CardView.tsx'
@@ -85,7 +85,10 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
   const [dragging, setDragging] = useState(false)
   const fieldRef = useRef<HTMLDivElement>(null)
   const field = useElementSize(fieldRef)
-  const height = cardHeight(field?.height ?? 400)
+  // The height drawn last, kept through a 1-px change (see steadyCardHeight).
+  const [drawnHeight, setDrawnHeight] = useState<number | null>(null)
+  const height = steadyCardHeight(drawnHeight, cardHeight(field?.height ?? 400))
+  if (height !== drawnHeight) setDrawnHeight(height)
   const decks = useDecks()
   const startGame = useStartGame()
   const endGame = useEndGame()
@@ -292,6 +295,11 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
           },
           { label: 'Add a +1/+1 counter', hint: '+', onSelect: () => play({ type: 'counter', ids, name: '+1/+1', delta: 1 }) },
           ...(plus ? [{ label: 'Remove a +1/+1 counter', hint: '-', onSelect: () => play({ type: 'counter', ids, name: '+1/+1', delta: -1 }) }] : []),
+          // Each other kind already on the cards (Midnight Clock's hour counters) is one click from one more or one fewer.
+          ...menuCounters(cards).flatMap((name) => [
+            { label: `Add 1 ${name} counter`, onSelect: () => play({ type: 'counter', ids, name, delta: 1 }) },
+            { label: `Remove 1 ${name} counter`, onSelect: () => play({ type: 'counter', ids, name, delta: -1 }) },
+          ]),
           { label: 'Counters…', onSelect: () => setDialog({ kind: 'counters', ids }) },
           'separator',
           ...(card.attachedTo !== null && ids.length === 1
@@ -643,6 +651,7 @@ function DialogFor({
         <CounterDialog
           names={list(dialog.ids.map((id) => nameFor(game, id, viewer)))}
           current={game.cards[dialog.ids[0]!]?.counters ?? {}}
+          choices={counterChoices(Object.values(game.cards))}
           onAdd={(name, delta) => play({ type: 'counter', ids: dialog.ids, name, delta })}
           onSet={(name, value) => play({ type: 'setCounter', ids: dialog.ids, name, value })}
           onClose={onClose}

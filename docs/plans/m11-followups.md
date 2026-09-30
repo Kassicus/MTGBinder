@@ -27,8 +27,6 @@ specced and not started.
   `FieldCard` draws only a loose card's direct attachments, so "Attach to…" followed by a click on a tucked card makes
   the card vanish from the board (undo brings it back). Either refuse to attach to a tucked card, or draw attachments of
   attachments. The most visible thing M11 leaves.
-- **Counter names that are `Object.prototype` keys** (`constructor`, `toString`) become `NaN`, and `__proto__` is dropped
-  (`game.ts`, the counter code's `c.counters[name] ?? 0`). Nothing crashes. One line: `Object.hasOwn(c.counters, name)`.
 - **A host moved to the other side** keeps its attached cards, which then show at the spots they had before they were
   attached (they stop being tucked, since their controller differs).
 - **The detach step:** a card taken off its host moves 0.07 of the half per step, while the Board draws the tuck at 30%
@@ -36,6 +34,27 @@ specced and not started.
   cards near the far edge can clamp to one spot, and tucked cards in the creature row are clipped at the half's edge.
 - **The menu's backdrop** swallows a middle-click without closing the menu; the first press of a double-click outside a
   menu closes it, and the second reaches the table.
+
+## After the owner's first game (2026-09-30)
+The owner asked for custom counters (Midnight Clock's hour counters) and bigger card images. A small tweak on
+`playtest-counters-sizes` did both:
+- Each counter kind on a card is in its menu.
+- The Counters… dialog was reworked.
+- Counters named like `Object.prototype` keys work.
+- The hand, preview, mulligan, Look, Search and graveyard/exile cards are bigger.
+- The table no longer flickers between two sizes at some window heights.
+- A long menu stays on the window.
+
+It left:
+- **The smallest window (820×560):** each seat's side block is about 220 px tall, but its half of the table is about
+  130. The library, graveyard, exile and command zone are cut off, so they can't be clicked or dropped on. This was
+  already so before the tweak, which took 8 px more from each half.
+- **Retina sharpness:** a card switches to Scryfall's normal image only above 204 CSS px, the small image's height. On
+  a 2× screen, the hand (about 125 px), the Search grid (200 px) and the graveyard/exile list (150 px) still stretch
+  the small image. `height * devicePixelRatio > 204` would fix that, but would load the normal image for every card in
+  the hand and in Search, which is slower the first time.
+- **Face-down cards:** the Counters… dialog's name buttons and the card menu show the counter kinds on the other seat's
+  face-down card. Counters are public in Magic, and the old dialog's "Now:" line listed them too.
 
 ## Later (left after M11)
 - **The game model** (`src/shared/playtest/`):

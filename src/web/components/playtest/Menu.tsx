@@ -21,7 +21,8 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
     const el = ref.current
     if (!el) return
     const { width, height } = el.getBoundingClientRect()
-    setSpot({ left: Math.min(menu.x, window.innerWidth - width - 8), top: Math.min(menu.y, window.innerHeight - height - 8) })
+    // Kept on the window; a menu taller than it scrolls (a card with several kinds of counter has a long one).
+    setSpot({ left: Math.max(8, Math.min(menu.x, window.innerWidth - width - 8)), top: Math.max(8, Math.min(menu.y, window.innerHeight - height - 8)) })
     el.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
   }, [menu])
 
@@ -66,7 +67,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
         aria-label={menu.title}
         style={spot}
         onContextMenu={(e) => e.preventDefault()}
-        className="fixed z-50 min-w-52 rounded-lg border border-stone-700 bg-stone-900 py-1 text-sm shadow-2xl shadow-black/60"
+        className="fixed z-50 max-h-[calc(100dvh-16px)] min-w-52 overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 py-1 text-sm shadow-2xl shadow-black/60"
       >
         <div className="truncate px-3 pt-1 pb-1.5 text-xs text-stone-500">{menu.title}</div>
         {menu.items.map((item, i) =>

@@ -89,7 +89,7 @@ export function MulliganView({
                 }}
                 className={`relative rounded-lg transition ${at >= 0 ? 'opacity-45 ring-2 ring-amber-500 ring-offset-2 ring-offset-stone-950' : 'hover:-translate-y-1'}`}
               >
-                <CardView data={game.data[id]!} height={210} />
+                <CardView data={game.data[id]!} height={260} />
                 {at >= 0 && (
                   <span className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-stone-950">
                     {at + 1}

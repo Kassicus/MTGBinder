@@ -12,6 +12,31 @@ export function cardHeight(halfHeight: number): number {
   return Math.round(Math.min(150, Math.max(56, halfHeight * 0.3)))
 }
 
+/**
+ * The table card height to draw, from the one drawn now (null before the first) and the one the table's height asks
+ * for: a change of 1 px is ignored. The hand's strip comes out of the table's height, so rounding can otherwise flip
+ * the two back and forth every frame at some window heights.
+ */
+export function steadyCardHeight(drawn: number | null, wanted: number): number {
+  return drawn !== null && Math.abs(wanted - drawn) < 2 ? drawn : wanted
+}
+
+/**
+ * A card in the hand: half again as tall as one on the table, up to 240 px. No floor: the hand's strip comes out of the
+ * table's height, and on a short window a taller hand would squeeze the table.
+ */
+export function handHeight(cardHeight: number): number {
+  return Math.round(Math.min(240, cardHeight * 1.5))
+}
+
+/** The hover preview: 520 px tall, less on a window too short for it and the lines under it, but at least 240. */
+export function previewHeight(windowHeight: number): number {
+  return Math.round(Math.min(520, Math.max(240, windowHeight - 240)))
+}
+
+/** Scryfall's small image is this tall; a card drawn taller uses the normal image, so it isn't blurred. */
+export const SMALL_IMAGE_HEIGHT = 204
+
 export interface Box {
   width: number
   height: number
@@ -68,6 +93,24 @@ export function cardsInBox(
       return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom
     })
     .map((c) => c.id)
+}
+
+/** The counters the Counters… dialog offers first (spec §5.9.4). */
+export const COMMON_COUNTERS = ['+1/+1', '-1/-1', 'loyalty', 'charge', 'time', 'lore', 'shield', 'stun', 'oil']
+
+/** Each kind of counter on these cards, in the order first met. */
+function countersOn(cards: CardState[]): string[] {
+  return [...new Set(cards.flatMap((c) => Object.keys(c.counters)))]
+}
+
+/** The kinds of counter a card's menu adds or removes one of: each on the cards, but +1/+1, which has its own items. */
+export function menuCounters(cards: CardState[]): string[] {
+  return countersOn(cards).filter((name) => name !== '+1/+1')
+}
+
+/** The counters the Counters… dialog offers: the usual ones, then any other kind on the table (an hour counter). */
+export function counterChoices(cards: CardState[]): string[] {
+  return [...COMMON_COUNTERS, ...countersOn(cards).filter((name) => !COMMON_COUNTERS.includes(name))]
 }
 
 /** A counter's tag on a card: "+3/+3" for three +1/+1 counters, "◆4" for loyalty, else its name and number. */

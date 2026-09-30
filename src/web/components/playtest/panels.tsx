@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { gameLog } from '../../../shared/playtest/log.ts'
 import { commanderTax, faceOf, visibleTo } from '../../../shared/playtest/status.ts'
 import type { Action, SeatIndex } from '../../../shared/playtest/types.ts'
+import { CARD_RATIO, previewHeight } from '../../lib/playtest-board.ts'
 import { useBoard } from './board-context.ts'
 import { CardView } from './CardView.tsx'
 
@@ -16,7 +17,7 @@ export function PilePanel({ seat, zone, onClose }: { seat: SeatIndex; zone: 'gra
     <section
       aria-label={`${name}'s ${zone}`}
       data-drop="none"
-      className="fixed top-24 right-4 z-40 flex max-h-[70dvh] w-80 flex-col rounded-xl border border-stone-700 bg-stone-950/95 shadow-2xl"
+      className="fixed top-24 right-4 z-40 flex max-h-[70dvh] w-96 flex-col rounded-xl border border-stone-700 bg-stone-950/95 shadow-2xl"
     >
       <header className="flex items-center justify-between border-b border-stone-800 px-3 py-2">
         <h2 className="truncate text-sm text-stone-200">
@@ -40,7 +41,7 @@ export function PilePanel({ seat, zone, onClose }: { seat: SeatIndex; zone: 'gra
               onPointerLeave={() => board.setHovered(null)}
               className="cursor-grab"
             >
-              <CardView data={board.game.data[id]!} height={120} />
+              <CardView data={board.game.data[id]!} height={150} />
             </li>
           ))}
         </ul>
@@ -106,12 +107,15 @@ export function Preview({ id, pointerX }: { id: string; pointerX: number }) {
   const face = faceOf(board.game, card)
   const counters = Object.entries(card.counters)
   const left = pointerX > window.innerWidth / 2
+  const height = previewHeight(window.innerHeight)
   return (
     <div
       aria-hidden
-      className={`pointer-events-none fixed top-20 z-40 flex w-72 flex-col gap-2 rounded-xl bg-stone-950/90 p-2 shadow-2xl ${left ? 'left-4' : 'right-4'}`}
+      // The card's width, and the padding (p-2) on each side.
+      style={{ width: Math.ceil(height / CARD_RATIO) + 16 }}
+      className={`pointer-events-none fixed top-20 z-40 flex flex-col gap-2 rounded-xl bg-stone-950/90 p-2 shadow-2xl ${left ? 'left-4' : 'right-4'}`}
     >
-      <CardView data={board.game.data[id]!} card={{ ...card, counters: {}, tapped: false }} height={400} large />
+      <CardView data={board.game.data[id]!} card={{ ...card, counters: {}, tapped: false }} height={height} large />
       <div className="px-1 text-sm text-stone-300">
         <div className="font-semibold text-stone-100">{face.name}</div>
         {card.faceDown && <div className="text-stone-400">Face down</div>}

@@ -162,11 +162,11 @@ export function apply(state: GameState, action: Action): GameState {
       if (name === '') throw new PlaytestError('A counter needs a name')
       for (const id of action.ids) {
         const c = onBattlefield(d, id)
-        const was = c.counters[name] ?? 0
+        // Own keys only, so a counter can be named anything an object already has ("constructor", "__proto__").
+        const was = Object.hasOwn(c.counters, name) ? c.counters[name]! : 0
         const value = action.type === 'counter' ? Math.max(0, was + whole(action.delta)) : Math.max(0, whole(action.value))
-        const counters = { ...c.counters }
+        const counters = { ...c.counters, [name]: value }
         if (value === 0) delete counters[name]
-        else counters[name] = value
         setCard(d, id, { counters })
       }
       break

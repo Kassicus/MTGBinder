@@ -5,9 +5,15 @@ import {
   boardKey,
   cardHeight,
   cardsInBox,
+  COMMON_COUNTERS,
+  counterChoices,
   counterTag,
   fromScreen,
+  handHeight,
+  menuCounters,
   playDest,
+  previewHeight,
+  steadyCardHeight,
   startingLife,
   tapTo,
   toScreen,
@@ -56,6 +62,27 @@ describe('the board', () => {
     expect(cardHeight(1000)).toBe(150)
   })
 
+  it("keeps the card height drawn when the table asks for 1 px more or less, so the hand and table don't flip back and forth", () => {
+    expect(steadyCardHeight(null, 84)).toBe(84)
+    expect(steadyCardHeight(84, 83)).toBe(84)
+    expect(steadyCardHeight(84, 85)).toBe(84)
+    expect(steadyCardHeight(84, 86)).toBe(86)
+    expect(steadyCardHeight(120, 60)).toBe(60)
+  })
+
+  it('draws the hand half again as tall as a table card, up to 240 px', () => {
+    expect(handHeight(84)).toBe(126)
+    expect(handHeight(56)).toBe(84)
+    expect(handHeight(150)).toBe(225)
+    expect(handHeight(200)).toBe(240)
+  })
+
+  it('draws the preview 520 px tall, less on a window too short for it', () => {
+    expect(previewHeight(900)).toBe(520)
+    expect(previewHeight(700)).toBe(460)
+    expect(previewHeight(300)).toBe(240)
+  })
+
   it('finds the cards whose centers are in a dragged box', () => {
     const field = { width: 1000, height: 400 }
     const cards = [card('a', { pos: { x: 0.1, y: 0.5 } }), card('b', { pos: { x: 0.5, y: 0.5 } }), card('c', { pos: null })]
@@ -96,6 +123,19 @@ describe('the board', () => {
     expect(counterTag('-1/-1', 1)).toBe('−1/−1')
     expect(counterTag('loyalty', 4)).toBe('◆4')
     expect(counterTag('charge', 2)).toBe('charge 2')
+  })
+
+  it("offers one more or one fewer of each kind of counter on the cards, but +1/+1, which has its own items", () => {
+    const clock = card('a', { counters: { hour: 2, '+1/+1': 1 } })
+    const other = card('b', { counters: { charge: 3, hour: 1 } })
+    expect(menuCounters([clock, other])).toEqual(['hour', 'charge'])
+    expect(menuCounters([card('c')])).toEqual([])
+  })
+
+  it('offers the usual counters, then the others on the table', () => {
+    const cards = [card('a', { counters: { hour: 2, loyalty: 3 } }), card('b', { counters: { verse: 1, hour: 1 } })]
+    expect(counterChoices(cards)).toEqual([...COMMON_COUNTERS, 'hour', 'verse'])
+    expect(counterChoices([])).toEqual(COMMON_COUNTERS)
   })
 
   it("reads the board's keys, and none right after a g", () => {

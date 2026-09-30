@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { CardData, CardState, PlayFace } from '../../../shared/playtest/types.ts'
-import { CARD_RATIO, counterTag } from '../../lib/playtest-board.ts'
+import { CARD_RATIO, counterTag, SMALL_IMAGE_HEIGHT } from '../../lib/playtest-board.ts'
 
 /** Colors of a text frame, by a card's colors (a token from the form, or a card whose image didn't load). */
 const FRAME: Record<string, string> = {
@@ -48,7 +48,7 @@ export function TextFrame({ face, colors, token, height }: { face: PlayFace; col
   )
 }
 
-/** The face showing, and the image to draw it with: the small image for a card's front on the board. */
+/** The face showing, and the image to draw it with: the small image for a card's front drawn small. */
 function faceImage(data: CardData, face: number, large: boolean): { face: PlayFace; image: string | null } {
   const shown = data.faces[face] ?? data.faces[0]!
   if (face === 0 && !large && data.imageSmall) return { face: shown, image: data.imageSmall }
@@ -76,7 +76,7 @@ export function CardView({
 }) {
   const [broken, setBroken] = useState<string | null>(null)
   if (hidden) return <CardBack height={height} />
-  const { face, image } = faceImage(data, card?.face ?? 0, large)
+  const { face, image } = faceImage(data, card?.face ?? 0, large || height > SMALL_IMAGE_HEIGHT)
   const counters = Object.entries(card?.counters ?? {})
   const token = card?.token ?? false
   return (
