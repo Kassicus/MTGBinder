@@ -5,11 +5,12 @@
 
 ## 1. Purpose
 
-Binder is a personal, single-user Magic: The Gathering collection manager that runs locally on this Mac. It answers three questions quickly:
+Binder is a personal, single-user Magic: The Gathering collection manager that runs locally on this Mac. It answers four questions quickly:
 
 1. **Do I own this card?** How many, which printings, and are they already in decks?
 2. **What do I need to buy to finish this deck?** Account for cards committed to other built decks.
 3. **What should I build next?** Brainstorm with Claude, grounded in what I actually own.
+4. **How does this deck play?** Playtest it by hand against another of my decks, or alone.
 
 Cards get into the library mainly by **scanning them with an iPhone camera** connected over USB.
 
@@ -20,7 +21,7 @@ Cards get into the library mainly by **scanning them with an iPhone camera** con
 - Brainstormed decks can be saved straight into the deckbuilder as prospective decks.
 
 ### Out of scope
-Multi-user, remote or network access, deployment, price history, trade or sale tracking, tracking card condition or language, offline card images (images load from Scryfall's CDN), a mobile-first UI.
+Multi-user, remote or network access, deployment, price history, trade or sale tracking, tracking card condition or language, offline card images (images load from Scryfall's CDN), a mobile-first UI, rules enforcement or a computer opponent in playtests (§5.9).
 
 ## 2. Decisions
 
@@ -35,6 +36,7 @@ Multi-user, remote or network access, deployment, price history, trade or sale t
 | Allocation granularity | By card identity (`oracle_id`), not by physical copy or printing. |
 | Port | `127.0.0.1:4321` (localhost only), for Binder.app and `pnpm start` alike. |
 | Desktop app | **Binder.app**, an Electron 44 app built on this Mac (`pnpm app`): its own window and a menu-bar icon, the server in Electron's utility process, the library in `~/Library/Application Support/Binder` (the owner's choices, 2026-09-28). `pnpm start` still runs Binder from the terminal on the project's `data/`. |
+| Playtest | Played by hand: I pilot both seats (or one, to goldfish) and resolve every card myself. Binder enforces no rules, and there's no computer opponent and no outside game engine. Mulligans follow my playgroup's rule: draw 10, keep 7, as often as I like (the owner's choices, 2026-09-30). |
 
 ## 3. Architecture
 
@@ -55,7 +57,7 @@ binder/
   .env                    ANTHROPIC_API_KEY (written by Settings page, chmod 600)
   native/ocr.swift        Vision OCR helper source
   bin/ocr                 compiled helper (built by `pnpm setup`)
-  src/shared/             types + pure logic shared by server and web (search AST, ownership math, decklist parsing, format rules)
+  src/shared/             types + pure logic shared by server and web (search AST, ownership math, decklist parsing, format rules, the playtest game)
   src/server/             Hono app: routes, db, migrations, scryfall, search compiler, scanner, ai
   src/web/                React SPA
   tests/                  Vitest: unit, integration, fixtures
@@ -139,15 +141,22 @@ UNIQUE(`card_id`, `finish`).
 **`ai_threads`**: `id`, `title` (empty until the first message names it), `deck_id` (nullable; a deleted deck unlinks it), `created_at`, `updated_at`.
 **`ai_messages`**: `id`, `thread_id` FK, `role`, `content` (JSON array of content blocks, stored verbatim including thinking blocks, except as §5.5 says: a declined answer is stored empty, as is the marker that a conversation has grown too long for Claude, a stopped one as its text and any fallback markers, a cut-off one as its text, one that fell back partway with only text before the fallback, and empty text blocks are dropped), `meta` (JSON, for an assistant message: the model that wrote it, why it stopped (the API's stop reason, or `stopped` when the owner stopped it), and its token usage; added by migration 004), `created_at`.
 
+**`playtest_game`** (migration 007) holds the game in progress (§5.9), at most one: `id` INTEGER PK (always 1), `setup` (JSON: the model version, the seed, both seats' deck snapshots, starting life, the starting seat, and whether it draws on turn 1), `created_at`.
+**`playtest_actions`** (migration 007): `game_id` FK→playtest_game (cascade), `seq` INTEGER (0, 1, 2, … in the order played), `action` (JSON), `created_at`. PK(`game_id`, `seq`).
+
+**`tokens`** (migration 008, M12) holds Scryfall's tokens and emblems, one row per token identity: `oracle_id` TEXT PK, `name`, `layout` (`token`, `double_faced_token`, or `emblem`), `type_line`, `oracle_text`, `power`, `toughness`, `colors`, `image_small`, `image_normal`, `card_faces` (JSON), all from the newest paper printing. They're never in `cards`, so search, the library, and decks never see them.
+**`card_tokens`** (migration 008, M12): `oracle_id` (a card) and `token_oracle_id` (a token it makes), from Scryfall's `all_parts`. PK(`oracle_id`, `token_oracle_id`).
+
 **`meta`**: key/value. Holds `bulk_updated_at`, `bulk_source_updated_at`, `card_data_version` (the mapping version that imported `cards`), `card_names_version` (the default-printing rule that built `card_names`), `last_backup_at`, and settings (`scan_auto_commit`, `scan_default_finish`, `scan_accept_uncertain_printing`, `buylist_ignore_basics`).
 
 ### 4.2 Bulk import
 1. `GET https://api.scryfall.com/bulk-data/default-cards` and read `jsonl_download_uri` (gzipped JSONL, ~79 MB compressed as of 2026-09-26). If that field is missing, fail with a clear error that names the fields actually present. Stream the download to `data/bulk/default-cards.jsonl.gz`.
-2. Parse via `zlib.createGunzip()` → `readline`, one card JSON per line. Skip `is_digital` cards and cards where `games` lacks `paper`. Insert rows into a fresh `cards_staging` table in batched transactions.
+2. Parse via `zlib.createGunzip()` → `readline`, one card JSON per line. Skip `is_digital` cards and cards where `games` lacks `paper`. Insert rows into a fresh `cards_staging` table in batched transactions. Tokens, double-faced tokens, and emblems go to staging for `tokens` instead, and each card's `all_parts` entries with component `token` to staging for `card_tokens` (M12; art series and oversized cards are still skipped).
 3. In **one transaction** (WAL readers keep seeing the old snapshot until commit):
    - Upsert staging into `cards` with `INSERT … ON CONFLICT(id) DO UPDATE`. Never use `REPLACE` or table renames, which would disturb foreign keys from `collection` and `deck_cards`.
    - Delete `cards` rows absent from staging **unless** they're referenced by `collection.card_id`, `deck_cards.preferred_card_id`, or `scan_items.card_id`, or are printings of a card (`oracle_id`) that a deck line uses and that's missing from staging altogether. Printings that Scryfall removes but that I own, chose for a deck line, or have in the scan queue are kept, and so is every printing of a deck's card that's gone from the new data (a line on the default printing names only the card). A dropped printing of a deck's card that's still in the data is deleted, so its frozen price can't win the buy list.
    - Rebuild `card_names` (with each card's default printing) and its `card_names_fts` index, drop `cards_staging`, and update `meta`.
+   - Replace `tokens` and `card_tokens` with their staging (M12). A link whose token isn't in the data is dropped. `card_data_version` 3 marks card data imported with tokens, so older card data refreshes at the next start (below).
 
 Refresh happens automatically in the background at server start if `bulk_updated_at` is older than 7 days or `card_data_version` shows the card data was imported by an older Binder mapping, and on demand from Settings. When Scryfall's `updated_at` matches `bulk_source_updated_at` and the downloaded file is still there, a refresh re-imports that file instead of downloading it again. Progress is exposed via `GET /api/bulk/status`.
 
@@ -306,7 +315,7 @@ Tabs for Built, Prospective, and All. Each deck card shows name, format, status,
 - **Left: search.** Scope toggle (All cards / My library), local name autocomplete (FTS), and a results list with "+" buttons that add to the selected board. Search results show owned/free badges.
 - **Right: deck.** Grouped by board, then by type (Creature, Planeswalker, Instant, Sorcery, Artifact, Enchantment, Battle, Land) or by category (toggle). Each line has: quantity stepper (up to 999), name (hover shows the image), mana cost, status icon (✅ owned / ⚠️ in another built deck / 🛒 buy), price, and a menu (move board, set category, choose printing, remove). A maybe line short of copies says how many other built decks hold and how many this deck uses on its other boards. While a line is being moved or removed, its buttons wait until the list shows the change.
 - A line whose card is no longer in the card data (Scryfall re-keyed it) stays, as "A card no longer in the card data", counting toward the deck's size but not its cost or completion (its copies count as having no price in the total value), with a warning to remove it and add the card again. Its quantity and printing can't be changed (it can still be moved to another board, given a category, or removed), and export leaves it out.
-- **Header**: name, format, status toggle, card count per board, completion, total value (as on the deck card), cost to finish, warnings count (each card's warnings once, whatever boards it's on), **Brainstorm with Claude** (§5.5), and **Scan cards into this deck** (§5.1.3). A deck that scanning has added to shows how much of it scans cover ("Scanned 56 of 60": each line counts its scanned copies up to its quantity, maybe left out), and each line "2 of 4 scanned"; these are the counts scanning uses to fill the list first (§5.1.3), and they can't be reset. A deck deleted in another window gives way to one message on the next edit.
+- **Header**: name, format, status toggle, card count per board, completion, total value (as on the deck card), cost to finish, warnings count (each card's warnings once, whatever boards it's on), **Brainstorm with Claude** (§5.5), **Scan cards into this deck** (§5.1.3), and **Playtest** (§5.9). A deck that scanning has added to shows how much of it scans cover ("Scanned 56 of 60": each line counts its scanned copies up to its quantity, maybe left out), and each line "2 of 4 scanned"; these are the counts scanning uses to fill the list first (§5.1.3), and they can't be reset. A deck deleted in another window gives way to one message on the next edit.
 - **Panels**: Deck health (format warnings), Mana curve (bar chart of main-board nonland mana values), Type counts.
 - **Buy list tab**: table of short lines (quantity, name, cheapest price, link) and total. "Copy as text" (`4 Lightning Bolt` per line). A toggle to ignore basics (the setting, for every deck). Of printings with the same cheapest price, one with a TCGplayer link wins, then the first by id.
 - **Import/export**: paste or export text. Accepted formats:
@@ -343,10 +352,10 @@ Tabs for Built, Prospective, and All. Each deck card shows name, format, status,
 - **Library file**: its size (the library and its log, split out once the log holds 1 MB or more) and the unused space inside the file, and **Compact the library** (once at least 10 MB is unused, as replacing card data leaves, and not while card data is being refreshed): a backup first (as Back up now), then `VACUUM`, a rebuild of the name search index, and a log checkpoint. The toast says the sizes before and after, and the backup's name. The size counts the library's write-ahead log, which is kept to 64 MB on disk after each checkpoint.
 
 ### 5.7 First use and keyboard shortcuts
-- **Start page and header**: Binder opens on Library: `/` (Binder.app's first page, the Binder logo, and old links to the former Look up page) goes to `/library`. The header lists Library, Scan, Decks, Search, Sets, Brainstorm, and Settings, then the **Find a card** box (`/`), which opens any card by name from every page.
+- **Start page and header**: Binder opens on Library: `/` (Binder.app's first page, the Binder logo, and old links to the former Look up page) goes to `/library`. The header lists Library, Scan, Decks, Playtest, Search, Sets, Brainstorm, and Settings, then the **Find a card** box (`/`), which opens any card by name from every page.
 - **Getting started**: while the collection is empty, Library shows three first steps where its results would be (in place of the "Your library is empty" line): scan your cards, import a CSV (it opens the import panel), and scan or build a deck. Before there's card data, Library says instead that it's downloading, or that Settings imports it.
-- **Empty states**: the Library, Search, Sets, Decks, deck editor, and Scan pages each say what to do next when there's nothing to show.
-- **Keyboard shortcuts** (none while a text field or dropdown has focus, with Ctrl, Cmd, or Alt, or while the card details are open): `?` lists them (also the **?** button in the header, and **Keyboard shortcuts** under Getting started); `/` finds a card; `g` then a letter goes to a page (`l` Library, `c` Scan, `d` Decks, `s` Search, `e` Sets, `b` Brainstorm, `t` Settings; within 1.5 s); on the Scan page, Space captures (on a focused dropdown too, instead of opening it) and `a` switches between Auto and Manual.
+- **Empty states**: the Library, Search, Sets, Decks, deck editor, Playtest, and Scan pages each say what to do next when there's nothing to show.
+- **Keyboard shortcuts** (none while a text field or dropdown has focus, with Ctrl, Cmd, or Alt, or while the card details are open): `?` lists them (also the **?** button in the header, and **Keyboard shortcuts** under Getting started); `/` finds a card; `g` then a letter goes to a page (`l` Library, `c` Scan, `d` Decks, `p` Playtest, `s` Search, `e` Sets, `b` Brainstorm, `t` Settings; within 1.5 s); on the Scan page, Space captures (on a focused dropdown too, instead of opening it) and `a` switches between Auto and Manual; on the Playtest page, the game's keys (§5.9.4).
 
 ### 5.8 Sets (`/sets`, `/sets/:code`)
 How complete the collection is, set by set (the owner's design, 2026-09-29).
@@ -364,6 +373,74 @@ How complete the collection is, set by set (the owner's design, 2026-09-29).
   - A row opens the card detail drawer (§5.2.5) on that printing. Adding or removing a copy there updates the page.
   - The whole set is one list, without pages (The List's 5,258 cards too). With Missing only on a complete set, it says the set is complete. A code that's no set shows "No set with that code" (404).
 - **Later**: set symbols (they need Scryfall's set list), a card-image grid, and filtering by set type.
+
+### 5.9 Playtest (`/playtest`)
+A table for playing my decks by hand (the owner's design, 2026-09-30). I pilot both seats, or one seat to goldfish, and resolve every card myself: Binder moves cards, keeps counts, and remembers the game, but enforces no rules. Built for Commander first; 60-card decks play the same way.
+
+**5.9.1 The game**
+- **A list of actions.** A game is its setup plus the actions played, in order: draw, move a card, tap, add a counter, next turn, and so on. `apply(state, action)` in `src/shared/playtest/` turns them into the board. It's pure (no React, no database), so the page and the server run the same code. Replaying a game's actions always gives the same board as playing them one by one.
+- **Shuffles** use a random number generator seeded when the game starts (the seed is in the setup; its state is part of the board). So a replay shuffles exactly as the game did, and undo or a reload never reshuffles a library.
+- **Deck snapshots.** Starting a game copies both decks into its setup, so editing or deleting a deck mid-game changes nothing in it. Each copy of each card becomes its own game card with its own id, carrying the line's chosen printing (else the card's default printing, §4.1): name, faces (name, mana cost, type line, rules text, power/toughness, loyalty, small and normal images), whether it's a land, a creature, or another permanent type (from the front face), and whether it's a commander. Commander-board cards start in the command zone; the main board is shuffled into the library; side and maybe boards are left out. A line whose card is no longer in the card data (§5.4.2) is left out, and setup says how many were.
+- **Stored in the library**: one game in progress at most (`playtest_game`, `playtest_actions`, §4.1). Routes:
+  - `POST /api/playtest` starts a game (the seats' deck ids, the starting seat or random, starting life, whether the starting seat draws on turn 1), replacing any game in progress. The server picks the seed and, for random, the starting seat.
+  - `GET /api/playtest` returns the game in progress (its setup and actions), or 404 when there's none.
+  - `POST /api/playtest/actions` saves one action with its position (`seq`). A position other than the next one is refused (409). The server replays the game with the action added and refuses one that doesn't apply (400), so a stored game always replays.
+  - `DELETE /api/playtest/actions/last?seq=` removes the last action (undo); a `seq` that isn't the last is refused (409).
+  - `DELETE /api/playtest` ends the game.
+- **The page applies each action at once** and sends it to the server behind any not yet saved, in order (§5.9.7).
+
+**5.9.2 Setup and mulligans**
+- **New game** (`/playtest` with no game in progress, or after End game): a deck for each seat (seat 2 may be **Nobody**, to goldfish), who goes first (**Random**, the default, seat 1, or seat 2), starting life (40 when either deck is a Commander deck, else 20; changeable), and **Starting player draws on turn 1** (off by default). A deck needs at least 10 main-board cards. **Start game** replaces a game in progress after a confirm. The deck editor's **Playtest** opens it with that deck in seat 1.
+- **Mulligans** (my playgroup's rule): the starting seat draws 10 and picks 3 to put on the bottom. Clicking a card marks it (1, 2, 3), clicking again unmarks it, and the first card marked ends up at the very bottom. **Keep 7** is on once exactly 3 are marked. **Mulligan** shuffles the 10 back and draws 10 again, as often as I like, and says how many mulligans so far. Then the other seat (if there is one) does the same, and turn 1 begins. Commanders stay in the command zone throughout.
+
+**5.9.3 The board** (a mirrored table)
+- The seat I'm viewing sits at the bottom of the window and the other seat at the top, mirrored. The board fills the window below the header without scrolling, and cards scale with the window.
+- Each half has its **battlefield** and, at its right, a **side block**: the deck's name, life (with − and +), poison, commander damage taken from each enemy commander (with − and +), the tax on each of its own commanders, and its piles: library (card back and count), graveyard and exile (top card and count), and command zone.
+- My **hand** runs face up along the bottom. The other seat's hand shows card backs and a count along the top.
+- The **turn bar** between the halves: "Turn 6 · Krenko Goblins", then Undo, Log, Switch side, End game, and **Next turn**. The stack shows in the bar while something is on it (§5.9.5).
+- **Free placement**: a card on the battlefield stays where I drag it. Positions are fractions of its controller's half, measured from that seat's own edge, so resizing keeps the layout and the top half is drawn flipped. A card entering the battlefield goes to a default spot, beside the last card of its kind: lands in the row along its seat's edge, creatures in the row farthest from it, and other permanents between. Cards may overlap; the last one moved is on top.
+- **Attached cards** tuck under their host, offset toward the far side, and move with it. When the host leaves the battlefield, they stay where they were, unattached.
+- **Card faces**: a card shows its image, turned sideways when tapped, with its counters as small tags. A double-faced card shows its current face. A card whose image doesn't load shows a text frame (name, mana cost, type line, power/toughness). Hovering over a card I can see shows a large preview (the normal image) on the side of the board away from the pointer, with its counters listed.
+
+**5.9.4 Controls**
+- **Drag** a card between hands, battlefields, piles, and the stack. Dropping on a library puts it on top. Dropping a permanent on the other seat's battlefield gives that seat control of it. A card always goes to its owner's hand, library, graveyard, exile, or command zone, whoever controls it.
+- **Double-click** a card in the hand or command zone to play it: permanents go to their default spot on the battlefield, instants and sorceries onto the stack.
+- **Click** a card on the battlefield to tap or untap it.
+- **Select several**: drag a box over empty battlefield, or Shift-click. Clicking one taps them all (or untaps them all, when all are tapped); dragging moves them together, keeping their places; the menu acts on them all. Esc clears the selection.
+- **Right-click a card** on the battlefield: tap or untap, flip (a double-faced card), turn face down or up, counters (+1/+1, −1/−1, loyalty, or a named counter; add, remove, or set a number), attach to… (then click the host) or detach, copy (a token copy), create token… (§5.9.8), put an ability on the stack, move to (hand, top or bottom of library, graveyard, exile, command zone), reveal. In the hand: play, discard, exile, top or bottom of library, reveal.
+- **The library** (right-click): draw N, look at the top N, search, mill N, reveal the top card, shuffle. Clicking it draws one.
+  - **Look at the top N**: the cards in a dialog; each goes to the top (in an order I drag), the bottom, the graveyard, the hand, or exile. This covers scry and surveil.
+  - **Search**: the library's cards by name (not in order); chosen cards go to the hand, battlefield, top, graveyard, or exile, then **Shuffle?** (yes by default).
+- **Graveyard and exile**: clicking one opens its cards in a list to drag or right-click from.
+- **Keys**, on the card under the pointer or the selection: `t` taps or untaps, `f` flips, `+` and `-` add or remove a +1/+1 counter. Anywhere on the page: `d` draws a card for the seat I'm viewing, Tab switches side, and Cmd+Z undoes (the one shortcut with Cmd). None of them while a text field or dialog has focus. Listed under `?` (§5.7).
+- **Create token…** and the side block's buttons act for the seat whose half they're on.
+
+**5.9.5 Turns, the stack, and Commander**
+- **Turn 1** begins once every seat has kept. The starting seat draws then only if the setup says so.
+- **Next turn** moves the turn counter on and passes the turn to the other seat (goldfishing, the same seat). It untaps every permanent that seat controls, draws its card, and turns the board to that seat. There's no phase tracker. Goldfishing, Switch side is off.
+- **The stack**: spells and ability markers (a small tag naming the card), newest on top. **Resolve** (a double-click, or the item's menu) sends a spell to its controller's battlefield (a permanent) or its owner's graveyard (an instant or sorcery), and removes a marker. A spell on the stack can also be dragged anywhere.
+- **Commanders** start in the command zone. Each time one leaves the command zone for the stack or the battlefield, its tax goes up by 2; undo takes that back. Partners are counted apart.
+- When a commander would go to the graveyard, exile, the hand, or the library, Binder asks **Command zone instead?** (**Command zone**, the default, or the place I chose). The action saved is where it went.
+- **Commander damage** is entered by hand, per enemy commander, in the side block of the seat it hit.
+- **Tokens and copies** that leave the battlefield or the stack vanish.
+- **Would lose**: a seat at 0 life or less, 10 poison or more, 21 or more damage from one commander, or that drew from an empty library gets a red marker. Nothing ends the game.
+- **End game**: **Rematch** (the same decks, snapshotted again, with a new seed and the same settings; not offered when a deck has been deleted), **New game** (setup), or Cancel. Either one ends the game in progress.
+
+**5.9.6 Hidden information and the log**
+- Libraries are hidden, except to their own seat while it looks at the top N or searches.
+- A face-down card shows its back to the other seat, and its face (dimmed, marked face down) to its controller.
+- Switching side changes only the view: it isn't an action, so it isn't logged or undone. Coming back to `/playtest` shows the game from the active seat (from the choosing seat during mulligans).
+- **Log** (from the turn bar): the actions in words, by turn, newest at the bottom. A line names a card only when the seat I'm viewing could see it ("Meren drew a card"; "Krenko cast Goblin Chieftain"). Reveal names the card to both seats.
+
+**5.9.7 Undo, saving, and errors**
+- **Undo** (Cmd+Z, or the turn bar) takes back the last action, as far back as the game's start, mulligans included. Undoing an action not yet saved drops it from the queue.
+- **Saving**: the page sends actions one at a time, in order. While the server can't be reached, a banner says "Couldn't save — retrying", the page tries again (1 s, then twice as long each time, up to 30 s), and later actions wait in line; the board keeps working.
+- **A refused position** (409: the game changed in another window, or a new game started there) reloads the saved game, with a toast saying why. An action the server finds doesn't apply (400) does the same.
+- **An old game**: the setup records the game model's version. A game saved by an older model that the new one can't replay says so and offers only End game.
+
+**5.9.8 Tokens**
+- **Create token…** (a card's menu, or right-clicking empty battlefield), for that battlefield's seat: a form for name, power/toughness (optional), colors, type line, and how many. The token shows as a dashed text frame, without an image. **Copy** makes a token copy of a card, with its image.
+- **Scryfall's tokens** (M12): a card's menu lists the tokens it makes (from `card_tokens`, carried in the deck snapshot) with their images, each one click to create. **Create token…** gains a search over every token by name, with the form kept for anything missing. An emblem goes to the command zone. Until card data has been imported with tokens (§4.2), the lists are empty and the form still works.
 
 ## 6. Error handling
 - **Scryfall client**: every request sends `User-Agent: Binder/0.1 (personal)` and `Accept: application/json`. A single-flight queue enforces ≥ 100 ms between requests. On 429, back off exponentially (1 s, 2 s, 4 s), and after 3 retries give up and pause the queue for 8 s. The bulk download gives up when no data has come for 60 s (30 minutes at most in all). Network errors are marked `offline` for UI messaging.
@@ -390,9 +467,10 @@ Vitest, test-first for logic modules.
 - **Matcher**: synthetic OCR outputs → decisions (exact set+number, name-only, ambiguous, junk).
 - **Routes**: Hono `app.request()` against an in-memory database seeded from fixtures. Covers collection CRUD, deck CRUD, buy list, library search, and scan item lifecycle (with the OCR client stubbed).
 - **Sets**: the completion counts (a showcase copy counts for its card, a reprint from another set doesn't, the basic lands once each, any finish, number order) and both routes (a set with nothing owned, an unknown code), plus the page's percentages, sorts, and filter as plain functions in `src/web/lib/sets.ts`.
+- **Playtest**: the game in `src/shared/playtest/`: every action; that replaying a game gives the same board as playing it; the seeded shuffle; the 10-and-7 mulligan and the bottom order; commander tax and the command-zone choice; control changes and owners' zones; tokens vanishing; default placement; the would-lose markers; and the log's wording from each seat. The routes: the deck snapshot (chosen printings, commanders in the command zone, side and maybe boards left out), saving and undo (409s, 400 for an action that doesn't apply), one game at most. In M12, the import of tokens and their links from fixture lines, and that tokens stay out of search.
 - **Brainstorm**: a local fake of the Messages API (`tests/helpers/fake-anthropic.ts`) streams scripted answers in the wire format the SDK parses, so the chat loop, the tools, and the routes are tested without a key or any call to Anthropic.
 - **Binder.app**: its paths, links, and messages are unit-tested, as are `startBinder` and the library move; the packaged app is checked end to end on a copy of the library with Chromium's fake camera (the M9 plan's Task 5): its window, auto mode through the OCR helper inside it, closing and opening it again, and quitting.
-- **Manual**: the scanner end-to-end with the iPhone (in Binder.app too), and brainstorm with a real key.
+- **Manual**: the scanner end-to-end with the iPhone (in Binder.app too), brainstorm with a real key, and a whole Commander playtest in Binder.app. The playtest board is also checked headlessly (setup, mulligans, a few turns, dragging, tapping, selecting, undo, switching side, and resuming after a reload) on a copy of the library.
 
 ## 8. Build milestones
 Each milestone ends with a working app.
@@ -406,5 +484,7 @@ Each milestone ends with a working app.
 8. **Polish**: the follow-ups left in `docs/plans/m*-followups.md`, empty states, keyboard shortcuts.
 9. **Binder.app**: a Mac app with its own window and menu-bar icon, and the library in Application Support (§3.4).
 10. **Sets**: the Sets page and each set's page, showing how complete the collection is (§5.8).
+11. **Playtest**: the game, saved in the library, with setup and mulligans, the board and its controls, the stack, Commander, the log, and the token form (§5.9).
+12. **Tokens**: Scryfall's tokens and which cards make them, imported with the card data, in the playtest's menus (§4.1, §4.2, §5.9.8).
 
 Implementation plans are written per milestone.
