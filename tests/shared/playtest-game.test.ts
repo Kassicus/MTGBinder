@@ -363,6 +363,13 @@ describe('the stack', () => {
     expect(() => apply(g, { type: 'resolve', item: 'm1' })).toThrow('That is no longer on the stack')
     expect(() => apply(g, { type: 'ability', id: library(g)[0]! })).toThrow("A card in the library can't use an ability")
   })
+
+  it("names a face-down card's ability marker for neither face, since both seats see the stack", () => {
+    let g = playing()
+    const id = firstCreature(g)
+    g = run(g, { type: 'move', ids: [id], to: { zone: 'battlefield', seat: 0 } }, { type: 'faceDown', ids: [id], down: true }, { type: 'ability', id })
+    expect(g.stack).toEqual([{ kind: 'ability', id: 'm1', source: id, controller: 0, name: 'A face-down card' }])
+  })
 })
 
 describe('life, poison', () => {

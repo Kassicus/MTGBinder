@@ -1,6 +1,6 @@
 import { defaultSpot } from './placement.ts'
 import { shuffled } from './rng.ts'
-import { looseCards } from './status.ts'
+import { faceOf, looseCards } from './status.ts'
 import {
   MODEL_VERSION,
   type Action,
@@ -205,7 +205,9 @@ export function apply(state: GameState, action: Action): GameState {
     case 'ability': {
       const c = card(d, action.id)
       if (c.zone === 'library') throw new PlaytestError("A card in the library can't use an ability")
-      d.stack.push({ kind: 'ability', id: `m${d.nextId++}`, source: c.id, controller: c.controller, name: faceName(d, c) })
+      // Both seats see the stack, so a face-down card's marker mustn't say what the card is.
+      const name = c.zone === 'battlefield' && c.faceDown ? 'A face-down card' : faceOf(d, c).name
+      d.stack.push({ kind: 'ability', id: `m${d.nextId++}`, source: c.id, controller: c.controller, name })
       break
     }
     case 'resolve': {
@@ -337,12 +339,6 @@ function onBattlefield(d: GameState, id: string): CardState {
 }
 
 const nameOf = (d: GameState, id: string) => d.data[id]?.name ?? 'That card'
-
-/** The name of the face showing. */
-function faceName(d: GameState, c: CardState): string {
-  const faces = d.data[c.id]!.faces
-  return (faces[c.face] ?? faces[0]!).name
-}
 
 function distinct(ids: readonly string[]): void {
   if (new Set(ids).size !== ids.length) throw new PlaytestError('A card is named twice')

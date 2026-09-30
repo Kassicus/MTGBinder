@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { apply, startGame } from '../../src/shared/playtest/game.ts'
 import { gameLog, lineFor, list } from '../../src/shared/playtest/log.ts'
 import { visibleTo } from '../../src/shared/playtest/status.ts'
-import type { Action, GameState } from '../../src/shared/playtest/types.ts'
-import { cardData, deck, setup } from '../helpers/playtest.ts'
+import type { Action, GameState, SetupCard } from '../../src/shared/playtest/types.ts'
+import { cardData, deck, doubleFaced, setup } from '../helpers/playtest.ts'
 
-/** Seat 1 is "Krenko Goblins" and seat 2 "Meren Aristocrats"; both have kept. */
-function playing(): GameState {
+/** Seat 1 is "Krenko Goblins" (with `extra` in its deck) and seat 2 "Meren Aristocrats"; both have kept. */
+function playing(extra: SetupCard[] = []): GameState {
+  const krenko = deck(1, 30, { name: 'Krenko Goblins', prefix: 'Goblin', commanders: ['Krenko, Mob Boss'] })
   let g = startGame(
     setup({
       seats: [
-        deck(1, 30, { name: 'Krenko Goblins', prefix: 'Goblin', commanders: ['Krenko, Mob Boss'] }),
+        { ...krenko, cards: [...krenko.cards, ...extra] },
         deck(2, 30, { name: 'Meren Aristocrats', prefix: 'Zombie', commanders: ['Meren of Clan Nel Toth'] }),
       ],
     }),
@@ -75,6 +76,29 @@ describe('the log', () => {
     expect(lines(g, { type: 'tap', ids: [a], tapped: true })[0]).toEqual([`Krenko Goblins tapped ${name(g, a)}`, 'Krenko Goblins tapped a card'])
     const inHand = g.seats[0]!.hand[0]!
     expect(lines(g, { type: 'reveal', ids: [inHand] })[0]![1]).toBe(`Krenko Goblins revealed ${name(g, inHand)}`)
+  })
+
+  it("names neither face of a face-down card flipped to the other seat", () => {
+    let g = playing([{ id: '1-dfc', commander: false, data: doubleFaced('Delver of Secrets', 'Insectile Aberration') }])
+    g = apply(g, { type: 'move', ids: ['1-dfc'], to: { zone: 'battlefield', seat: 0 } })
+    const faceUp = 'Krenko Goblins turned Delver of Secrets to Insectile Aberration'
+    expect(lines(g, { type: 'flip', id: '1-dfc' })[0]).toEqual([faceUp, faceUp])
+    g = apply(g, { type: 'faceDown', ids: ['1-dfc'], down: true })
+    expect(lines(g, { type: 'flip', id: '1-dfc' })[0]).toEqual([faceUp, 'Krenko Goblins turned a card over'])
+  })
+
+  it("names an ability's source when it resolves only to a seat that could see the source", () => {
+    let g = playing()
+    const [a, inHand] = g.seats[0]!.hand as [string, string]
+    g = apply(g, { type: 'move', ids: [a], to: { zone: 'battlefield', seat: 0 } })
+    g = apply(g, { type: 'faceDown', ids: [a], down: true })
+    const [used, onStack] = lines(g, { type: 'ability', id: a })
+    expect(used).toEqual([`Krenko Goblins used an ability of ${name(g, a)}`, 'Krenko Goblins used an ability of a card'])
+    // Seat 1 controls the face-down card and sees it, so its line names the card; seat 2's names nothing.
+    expect(lines(onStack, { type: 'resolve', item: onStack.stack[0]!.id })[0]).toEqual([`${name(g, a)}'s ability resolved`, 'An ability resolved'])
+    // The same for a card in a hand: only its own seat sees it.
+    const fromHand = apply(g, { type: 'ability', id: inHand })
+    expect(lines(fromHand, { type: 'resolve', item: fromHand.stack[0]!.id })[0]).toEqual([`${name(g, inHand)}'s ability resolved`, 'An ability resolved'])
   })
 
   it('words counters, tokens, life, poison, and commander damage', () => {

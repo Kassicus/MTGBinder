@@ -79,6 +79,8 @@ function describe(before: GameState, action: Action, after: GameState, viewer: S
       return `${seat(controllerOf(before, action.ids[0]!))} ${action.tapped ? 'tapped' : 'untapped'} ${cards(action.ids)}`
     case 'flip': {
       const c = after.cards[action.id]!
+      // A face-down card's faces are hidden from the other seat, the one it turns to as well.
+      if (seen(action.id) === null) return `${seat(c.controller)} turned a card over`
       return `${seat(c.controller)} turned ${cards([action.id])} to ${after.data[c.id]!.faces[c.face]!.name}`
     }
     case 'faceDown':
@@ -104,7 +106,11 @@ function describe(before: GameState, action: Action, after: GameState, viewer: S
       return `${seat(controllerOf(before, action.id))} used an ability of ${cards([action.id])}`
     case 'resolve': {
       const item = before.stack.find((i) => i.id === action.item)!
-      if (item.kind === 'ability') return `${item.name}'s ability resolved`
+      if (item.kind === 'ability') {
+        // Named only for a seat that could see its source, as the line for using it was.
+        const source = seen(item.source)
+        return source === null ? 'An ability resolved' : `${source}'s ability resolved`
+      }
       return `${cards([item.id])} resolved`
     }
     case 'life': {
