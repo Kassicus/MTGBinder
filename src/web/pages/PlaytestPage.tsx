@@ -43,7 +43,16 @@ function GameView({ saved }: { saved: SavedGame }) {
   }
   if (game.phase === 'mulligan') {
     const seat = game.seats[game.choosing]!
-    return <MulliganView key={`${game.choosing}:${seat.hand.join(',')}`} game={game} play={session.play} undo={session.undo} canUndo={session.canUndo} />
+    return (
+      <MulliganView
+        key={`${game.choosing}:${seat.hand.join(',')}`}
+        game={game}
+        play={session.play}
+        undo={session.undo}
+        canUndo={session.canUndo}
+        saveStatus={session.saveStatus}
+      />
+    )
   }
   return <Board saved={saved} game={game} session={session} />
 }

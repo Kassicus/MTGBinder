@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { KEEP } from '../../../shared/playtest/game.ts'
 import type { Action, GameState } from '../../../shared/playtest/types.ts'
+import { boardKey } from '../../lib/playtest-board.ts'
+import type { SaveStatus } from '../../lib/playtest-save.ts'
+import { GO_TO_MS, isTypingTarget } from '../../lib/shortcuts.ts'
 import { CardView } from './CardView.tsx'
 
 /**
@@ -13,11 +16,13 @@ export function MulliganView({
   play,
   undo,
   canUndo,
+  saveStatus,
 }: {
   game: GameState
   play: (action: Action) => boolean
   undo: () => void
   canUndo: boolean
+  saveStatus: SaveStatus
 }) {
   const seat = game.choosing
   const s = game.seats[seat]!
@@ -25,8 +30,30 @@ export function MulliganView({
   const need = Math.max(0, s.hand.length - KEEP)
   const left = need - marked.length
   const second = game.seats.length === 2 && seat !== game.startingSeat
+
+  // ⌘Z reaches back through the mulligans too (spec §5.9.7), with the Board's guards: not while a field, a dialog, or
+  // a menu has the keys, nor right after `g`. Only undo does anything here. When `g` was last pressed; never, to start.
+  const lastG = useRef(-Infinity)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const now = performance.now()
+      if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) lastG.current = now
+      if (isTypingTarget(e.target as HTMLElement) || document.querySelector('[aria-modal="true"], [role="menu"]')) return
+      if (boardKey(e, e.key !== 'g' && now - lastG.current <= GO_TO_MS) !== 'undo' || !canUndo) return
+      e.preventDefault()
+      undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo, canUndo])
+
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 py-4">
+    <div className="relative mx-auto flex max-w-6xl flex-col gap-4 py-4">
+      {saveStatus === 'retrying' && (
+        <p role="alert" className="absolute top-1 left-1/2 z-50 -translate-x-1/2 rounded-md bg-red-800 px-3 py-1 text-sm text-red-50 shadow-lg">
+          Couldn't save — retrying
+        </p>
+      )}
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="font-serif text-3xl text-amber-400">{s.name}</h1>
