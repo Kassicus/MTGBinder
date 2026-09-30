@@ -115,6 +115,12 @@ export function DeckHeader({ deck, onShowWarnings }: { deck: DeckDetail; onShowW
         >
           Scan cards into this deck
         </button>
+        <button
+          onClick={() => navigate(`/playtest?deck=${deck.id}`)}
+          className="rounded-md border border-stone-700 px-3 py-1.5 text-sm text-stone-200 hover:bg-stone-800"
+        >
+          Playtest
+        </button>
       </div>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-stone-400">
         {BOARD_ORDER.filter((b) => deck.boards[b] > 0 || b === 'main').map((b) => (

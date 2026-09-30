@@ -5,6 +5,7 @@ export const GO_TO: ReadonlyArray<{ key: string; path: string; label: string }> 
   { key: 'l', path: '/library', label: 'Library' },
   { key: 'c', path: '/scan', label: 'Scan' },
   { key: 'd', path: '/decks', label: 'Decks' },
+  { key: 'p', path: '/playtest', label: 'Playtest' },
   { key: 's', path: '/search', label: 'Search' },
   { key: 'e', path: '/sets', label: 'Sets' },
   { key: 'b', path: '/brainstorm', label: 'Brainstorm' },
@@ -21,6 +22,12 @@ export const SHORTCUTS: ReadonlyArray<{ keys: string[]; does: string; where?: st
   ...GO_TO.map((page) => ({ keys: ['g', page.key], does: `Go to ${page.label}` })),
   { keys: ['Space'], does: 'Capture the card in the guide', where: 'Scan' },
   { keys: ['a'], does: 'Switch between Auto and Manual capture', where: 'Scan' },
+  { keys: ['t'], does: 'Tap or untap the card under the pointer, or the selection', where: 'Playtest' },
+  { keys: ['f'], does: 'Flip the card under the pointer', where: 'Playtest' },
+  { keys: ['+', '-'], does: 'Add or remove a +1/+1 counter', where: 'Playtest' },
+  { keys: ['d'], does: 'Draw a card', where: 'Playtest' },
+  { keys: ['Tab'], does: 'Switch side', where: 'Playtest' },
+  { keys: ['⌘Z'], does: 'Undo', where: 'Playtest' },
   { keys: ['Esc'], does: 'Close the card details or this list' },
 ]
 

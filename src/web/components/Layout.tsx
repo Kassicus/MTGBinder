@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useCardDrawer } from '../lib/card-drawer.tsx'
 import { createGoTo, GO_TO, shortcutAllowed } from '../lib/shortcuts.ts'
 import { useBulkRefresh } from '../lib/use-bulk-status.ts'
@@ -19,6 +19,8 @@ export function Layout() {
   // While the card drawer or the shortcuts are open, the page behind can't be focused or clicked, so Tab stays there.
   const drawerOpen = useCardDrawer().cardId !== null
   const covered = drawerOpen || helpOpen
+  // The playtest's table fills the window below the header (spec §5.9.3).
+  const table = useLocation().pathname === '/playtest'
 
   // `?` lists the shortcuts; `g` then a letter goes to a page. The card finder's `/` and the Scan page's keys are
   // their own.
@@ -43,7 +45,7 @@ export function Layout() {
 
   return (
     <OpenShortcutsContext value={openShortcuts}>
-      <div className="min-h-dvh bg-stone-950 text-stone-200">
+      <div className={`bg-stone-950 text-stone-200 ${table ? 'flex h-dvh flex-col' : 'min-h-dvh'}`}>
         <header inert={covered} className="sticky top-0 z-20 border-b border-stone-800/80 bg-stone-950/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-2.5">
             <NavLink to="/library" className="font-serif text-xl font-semibold tracking-wide text-amber-400">
@@ -75,7 +77,7 @@ export function Layout() {
             </button>
           </div>
         </header>
-        <main inert={covered} className="mx-auto max-w-7xl px-4 py-8">
+        <main inert={covered} className={table ? 'min-h-0 w-full flex-1 overflow-auto px-3 py-2' : 'mx-auto max-w-7xl px-4 py-8'}>
           <Outlet />
         </main>
         <CardDrawer />

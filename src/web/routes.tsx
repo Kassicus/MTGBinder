@@ -4,6 +4,7 @@ import { BrainstormPage } from './pages/BrainstormPage.tsx'
 import { DeckEditorPage } from './pages/DeckEditorPage.tsx'
 import { DecksPage } from './pages/DecksPage.tsx'
 import { LibraryPage } from './pages/LibraryPage.tsx'
+import { PlaytestPage } from './pages/PlaytestPage.tsx'
 import { ScanPage } from './pages/ScanPage.tsx'
 import { SearchPage } from './pages/SearchPage.tsx'
 import { SetPage } from './pages/SetPage.tsx'
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
       { path: 'scan', element: <ScanPage /> },
       { path: 'decks', element: <DecksPage /> },
       { path: 'decks/:id', element: <DeckEditorPage /> },
+      { path: 'playtest', element: <PlaytestPage /> },
       { path: 'brainstorm', element: <BrainstormPage /> },
       { path: 'brainstorm/:threadId', element: <BrainstormPage /> },
       { path: 'settings', element: <SettingsPage /> },
