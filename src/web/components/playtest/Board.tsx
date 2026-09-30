@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent } from 'react'
 import { list } from '../../../shared/playtest/log.ts'
 import { canFlip, looseCards, visibleTo } from '../../../shared/playtest/status.ts'
-import type { Action, CardState, Dest, GameState, SavedGame, SeatIndex } from '../../../shared/playtest/types.ts'
+import type { Action, CardData, CardState, Dest, GameState, SavedGame, SeatIndex } from '../../../shared/playtest/types.ts'
 import { useDecks } from '../../lib/decks.ts'
 import { useEndGame, useStartGame, type GameSession } from '../../lib/playtest.ts'
-import { asksCommandZone, boardKey, cardHeight, cardsInBox, counterChoices, fromScreen, menuCounters, playDest, steadyCardHeight, tapTo } from '../../lib/playtest-board.ts'
+import { asksCommandZone, boardKey, cardHeight, cardsInBox, counterChoices, fromScreen, menuCounters, playDest, steadyCardHeight, tapTo, tokenLabel } from '../../lib/playtest-board.ts'
 import { GO_TO_MS, isTypingTarget } from '../../lib/shortcuts.ts'
 import { BoardContext, type BoardApi, type DragSource } from './board-context.ts'
 import { CardView } from './CardView.tsx'
@@ -123,9 +123,21 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
     (id: string) => {
       const g = latest.current.game
       const card = g.cards[id]
-      if (!card) return
+      // An emblem isn't played: it stays in the command zone.
+      if (!card || g.data[id]!.kind === 'emblem') return
       play({ type: 'move', ids: [id], to: playDest(g.data[id]!.kind, card.owner) })
     },
+    [play],
+  )
+
+  /** A menu's items for the tokens and emblems a card makes (spec §5.9.8), each made at once for `seat`. */
+  const tokenItems = useCallback(
+    (data: CardData, seat: SeatIndex): MenuItem[] =>
+      (data.tokens ?? []).map((token) => ({
+        label: tokenLabel(token),
+        image: token.imageSmall,
+        onSelect: () => play({ type: 'token', seat, token, count: 1 }),
+      })),
     [play],
   )
 
@@ -307,6 +319,8 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
             : [{ label: 'Attach to…', onSelect: () => setAttaching(ids) }]),
           ...(oneFaceUp ? [{ label: 'Copy (a token copy)', onSelect: () => play({ type: 'copy', id }) }] : []),
           { label: 'Create token…', onSelect: () => setDialog({ kind: 'token', seat: card.controller }) },
+          // The tokens this card makes; not for a face-down card, whose tokens would tell what it is.
+          ...(oneFaceUp ? tokenItems(g.data[id]!, card.controller) : []),
           ...(ids.length === 1 ? [{ label: 'Put an ability on the stack', onSelect: () => play({ type: 'ability', id }) }] : []),
           'separator',
           ...moves(''),
@@ -326,6 +340,13 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
         return
       }
       const zone = card.zone
+      if (zone === 'command' && g.data[id]!.kind === 'emblem') {
+        openMenu(e, title, [
+          { label: 'Put an ability on the stack', onSelect: () => play({ type: 'ability', id }) },
+          { label: 'Remove the emblem', onSelect: () => moveCards([id], { zone: 'exile' }) },
+        ])
+        return
+      }
       openMenu(e, title, [
         ...(zone === 'command' ? [{ label: 'Play', onSelect: () => playCard(id) }] : []),
         { label: 'Put onto the battlefield', onSelect: () => moveCards(ids, { zone: 'battlefield', seat: card.owner }) },
@@ -333,7 +354,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
         { label: 'Put an ability on the stack', onSelect: () => play({ type: 'ability', id }) },
       ])
     },
-    [play, moveCards, playCard],
+    [play, moveCards, playCard, tokenItems],
   )
 
   const openLibraryMenu = useCallback(
@@ -385,6 +406,8 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
       const spell = found.kind === 'spell'
       openMenu(e, spell ? g.data[item]!.name : `${found.name}: ability`, [
         { label: 'Resolve', onSelect: () => play({ type: 'resolve', item }) },
+        // A spell's tokens, for when it resolves: made for its controller.
+        ...(spell ? tokenItems(g.data[item]!, g.cards[item]!.controller) : []),
         ...(spell
           ? [
               { label: 'Put into hand', onSelect: () => moveCards([item], { zone: 'hand' }) },
@@ -394,7 +417,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
           : []),
       ])
     },
-    [play, moveCards],
+    [play, moveCards, tokenItems],
   )
 
   const nextTurn = useCallback(() => {

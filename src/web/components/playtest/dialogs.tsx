@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react'
 import { kindOf } from '../../../shared/playtest/placement.ts'
 import type { CardData, Dest, GameState, SeatIndex } from '../../../shared/playtest/types.ts'
+import { tokenName } from '../../lib/playtest-board.ts'
+import { useTokenSearch } from '../../lib/playtest.ts'
+import { useDebounced } from '../../lib/use-debounced.ts'
 import { CardView } from './CardView.tsx'
 import { Modal } from './Menu.tsx'
 
@@ -363,8 +366,19 @@ const COLORS: Array<[string, string]> = [
   ['G', 'Green'],
 ]
 
-/** The token form (spec §5.9.8): a name, power/toughness, colors, a type line, and how many. */
+/**
+ * Making tokens (spec §5.9.8): a search over Scryfall's tokens and emblems, one picked and made as many times as
+ * asked; or, for anything missing, a form for a name, power/toughness, colors, a type line, and how many.
+ */
 export function TokenDialog({ onSubmit, onClose }: { onSubmit: (token: CardData, count: number) => void; onClose: () => void }) {
+  const [query, setQuery] = useState('')
+  const found = useTokenSearch(useDebounced(query, 150))
+  const results = query.trim() === '' ? [] : (found.data ?? [])
+  const [picked, setPicked] = useState<CardData | null>(null)
+  const [pickedText, setPickedText] = useState('1')
+  const pickedCount = Number(pickedText)
+  const pickedOk = picked !== null && Number.isInteger(pickedCount) && pickedCount >= 1 && pickedCount <= 100
+
   const [name, setName] = useState('')
   const [power, setPower] = useState('1')
   const [toughness, setToughness] = useState('1')
@@ -401,7 +415,68 @@ export function TokenDialog({ onSubmit, onClose }: { onSubmit: (token: CardData,
     )
   }
   return (
-    <Modal title="Create tokens" onClose={onClose}>
+    <Modal title="Create tokens" onClose={onClose} wide>
+      <section aria-label="Scryfall's tokens" className="flex flex-col gap-3 text-sm text-stone-300">
+        <label className="flex flex-col gap-1">
+          Search Scryfall's tokens and emblems
+          <input
+            data-autofocus
+            value={query}
+            placeholder="Treasure, Spirit, Elspeth…"
+            onChange={(e) => setQuery(e.target.value)}
+            className={field}
+          />
+        </label>
+        {results.length > 0 && (
+          <ul aria-label="Tokens found" className="grid max-h-[34dvh] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto">
+            {results.map((token, i) => (
+              <li key={`${token.name}-${i}`}>
+                <button
+                  type="button"
+                  aria-pressed={picked === token}
+                  aria-label={tokenName(token)}
+                  title={tokenName(token)}
+                  onClick={() => setPicked(token)}
+                  className={`rounded-md p-1 ${picked === token ? 'bg-amber-700/40 ring-2 ring-amber-500' : 'hover:bg-stone-800'}`}
+                >
+                  <CardView data={token} height={150} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {query.trim() !== '' && found.isSuccess && !found.isPlaceholderData && results.length === 0 && (
+          <p className="text-stone-500">No token or emblem by that name. Make it below.</p>
+        )}
+        {picked && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!pickedOk) return
+              onClose()
+              onSubmit(picked, pickedCount)
+            }}
+            className="flex items-end gap-3"
+          >
+            <p className="min-w-0 flex-1 truncate self-center text-stone-100">{tokenName(picked)}</p>
+            <label className="flex flex-col gap-1">
+              How many
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={pickedText}
+                onChange={(e) => setPickedText(e.target.value)}
+                className={`w-20 ${field}`}
+              />
+            </label>
+            <button type="submit" disabled={!pickedOk} className={primary}>
+              {picked.kind === 'emblem' ? 'Get' : 'Create'} {pickedOk && pickedCount > 1 ? pickedCount : ''}
+            </button>
+          </form>
+        )}
+      </section>
+      <h3 className="mt-5 mb-3 border-t border-stone-800 pt-4 text-sm font-medium text-stone-200">Or make one by hand</h3>
       <form
         onSubmit={(e) => {
           e.preventDefault()

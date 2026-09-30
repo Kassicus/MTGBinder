@@ -1,7 +1,7 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { apply, PlaytestError, replay } from '../../shared/playtest/game.ts'
-import type { Action, GameState, SavedGame, SeatIndex, Setup } from '../../shared/playtest/types.ts'
+import type { Action, CardData, GameState, SavedGame, SeatIndex, Setup } from '../../shared/playtest/types.ts'
 import { ApiRequestError, apiGet, apiPost, apiSend } from './api.ts'
 import { createSaver, type SaveStatus } from './playtest-save.ts'
 import { useToast } from './toast.tsx'
@@ -9,6 +9,21 @@ import { useToast } from './toast.tsx'
 /** The playtest page's data (spec §5.9): the game in progress, played at once in the page and saved behind it. */
 
 export const PLAYTEST_KEY = ['playtest'] as const
+
+/**
+ * Scryfall's tokens and emblems whose name holds the query (spec §5.9.8), as game cards; none for a blank query. Its
+ * key is apart from the game's, so a reload of the game leaves it be. The last answer stays up while the next loads.
+ */
+export function useTokenSearch(query: string) {
+  const q = query.trim()
+  return useQuery({
+    queryKey: ['playtest-tokens', q],
+    queryFn: ({ signal }) => apiGet<CardData[]>(`/api/playtest/tokens?q=${encodeURIComponent(q)}`, signal),
+    enabled: q !== '',
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  })
+}
 
 /** The game in progress, or null when there's none. */
 export function usePlaytestGame() {

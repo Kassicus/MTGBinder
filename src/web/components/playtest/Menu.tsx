@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
-export type MenuItem = { label: string; onSelect: () => void; disabled?: boolean; hint?: string } | 'separator'
+/** A menu's item; `image` (a small card image) shows beside its label. */
+export type MenuItem = { label: string; onSelect: () => void; disabled?: boolean; hint?: string; image?: string | null } | 'separator'
 
 export interface MenuState {
   x: number
@@ -82,9 +83,12 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
                 onClose()
                 item.onSelect()
               }}
-              className="flex w-full items-baseline justify-between gap-4 px-3 py-1 text-left text-stone-200 outline-none hover:bg-stone-800 focus:bg-stone-800 disabled:text-stone-600 disabled:hover:bg-transparent"
+              className="flex w-full items-center justify-between gap-4 px-3 py-1 text-left text-stone-200 outline-none hover:bg-stone-800 focus:bg-stone-800 disabled:text-stone-600 disabled:hover:bg-transparent"
             >
-              <span>{item.label}</span>
+              <span className="flex items-center gap-2">
+                {item.image && <img src={item.image} alt="" draggable={false} className="h-8 w-[23px] shrink-0 rounded-sm object-cover" />}
+                {item.label}
+              </span>
               {item.hint && <kbd className="font-mono text-xs text-stone-500">{item.hint}</kbd>}
             </button>
           ),

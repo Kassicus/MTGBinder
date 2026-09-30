@@ -1,5 +1,5 @@
 import { clampPos } from '../../shared/playtest/placement.ts'
-import type { CardKind, CardState, Dest, Pos, SeatIndex } from '../../shared/playtest/types.ts'
+import type { CardData, CardKind, CardState, Dest, Pos, SeatIndex } from '../../shared/playtest/types.ts'
 import type { FormatId } from '../../shared/types.ts'
 
 /** The playtest board's arithmetic (spec §5.9.3, §5.9.4), kept apart from React so it can be tested. */
@@ -64,6 +64,20 @@ export function startingLife(formats: readonly FormatId[]): number {
 /** Playing a card (a double-click): a permanent to its default spot, an instant or sorcery onto the stack. */
 export function playDest(kind: CardKind, seat: SeatIndex): Dest {
   return kind === 'spell' ? { zone: 'stack' } : { zone: 'battlefield', seat }
+}
+
+/** A token by its name and, for a creature, its power and toughness: "Treasure", "Beast 3/3". */
+export function tokenName(token: CardData): string {
+  const { power, toughness } = token.faces[0]!
+  return `${token.name}${power !== null && toughness !== null ? ` ${power}/${toughness}` : ''}`
+}
+
+/**
+ * A card menu's item for a token the card makes (spec §5.9.8): "Create Treasure", "Create Beast 3/3", or, for an
+ * emblem, "Get Elspeth, Knight-Errant Emblem".
+ */
+export function tokenLabel(token: CardData): string {
+  return token.kind === 'emblem' ? `Get ${token.name}` : `Create ${tokenName(token)}`
 }
 
 /** Clicking selected cards taps them all, unless they're all tapped already: then it untaps them. */

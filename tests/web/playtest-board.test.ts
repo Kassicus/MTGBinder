@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CardState } from '../../src/shared/playtest/types.ts'
+import { cardData } from '../helpers/playtest.ts'
 import {
   asksCommandZone,
   boardKey,
@@ -16,6 +17,8 @@ import {
   steadyCardHeight,
   startingLife,
   tapTo,
+  tokenLabel,
+  tokenName,
   toScreen,
 } from '../../src/web/lib/playtest-board.ts'
 
@@ -99,6 +102,14 @@ describe('the board', () => {
     expect(playDest('creature', 1)).toEqual({ zone: 'battlefield', seat: 1 })
     expect(playDest('land', 0)).toEqual({ zone: 'battlefield', seat: 0 })
     expect(playDest('spell', 0)).toEqual({ zone: 'stack' })
+  })
+
+  it("labels a card's tokens by name and power/toughness, and its emblems as gotten", () => {
+    expect(tokenName(cardData('Goblin'))).toBe('Goblin 1/1')
+    expect(tokenName(cardData('Treasure', 'other'))).toBe('Treasure')
+    expect(tokenLabel(cardData('Treasure', 'other'))).toBe('Create Treasure')
+    expect(tokenLabel(cardData('Goblin'))).toBe('Create Goblin 1/1')
+    expect(tokenLabel(cardData('Elspeth, Knight-Errant Emblem', 'emblem'))).toBe('Get Elspeth, Knight-Errant Emblem')
   })
 
   it('taps a selection unless all of it is tapped', () => {

@@ -278,19 +278,24 @@ function EmptyPile({ height }: { height: number }) {
   return <div style={{ height, width: height / CARD_RATIO }} className="rounded-[6%] border border-dashed border-stone-700" />
 }
 
-/** The command zone: its cards, and each commander's tax under them. */
+/**
+ * The command zone: its cards (commanders and emblems), and each commander's tax under them. Past two cards, each after
+ * the first tucks under the one before, showing its left edge, so the side block keeps its width.
+ */
 function CommandZone({ seat, height }: { seat: SeatIndex; height: number }) {
   const board = useBoard()
   const ids = board.game.seats[seat]!.command
+  const overlap = ids.length > 2 ? -Math.round((height / CARD_RATIO) * 0.6) : 0
   const owned = Object.values(board.game.cards).filter((c) => c.commander && c.owner === seat)
   const taxes = owned.map((c) => `${board.game.data[c.id]!.name}: tax +${commanderTax(board.game, c.id)}`)
   return (
     <div data-drop={`command-${seat}`} aria-label="Command zone" className="flex flex-col items-center gap-0.5 text-[11px] text-stone-400">
       <div className="flex gap-1">
-        {ids.map((id) => (
+        {ids.map((id, i) => (
           <div
             key={id}
             data-card={id}
+            style={i > 0 && overlap !== 0 ? { marginLeft: overlap } : undefined}
             onPointerDown={(e) => board.beginCardDrag(e, id, 'command')}
             onDoubleClick={() => board.playCard(id)}
             onContextMenu={(e) => board.openCardMenu(e, id)}
