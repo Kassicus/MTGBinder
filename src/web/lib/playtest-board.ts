@@ -34,6 +34,20 @@ export function previewHeight(windowHeight: number): number {
   return Math.round(Math.min(520, Math.max(240, windowHeight - 240)))
 }
 
+/**
+ * How far apart the left edges of the command zone's cards sit, in a zone `room` px wide (spec §5.9.8): side by side,
+ * 4 px apart, when they fit; else overlapped just enough to fit, so each earlier card shows as much of its left edge
+ * (where its name is) as the room allows. Never under 2 px, so no card disappears under the next. The floor is that
+ * low because the room is small: at the largest piles, the side block's row leaves the zone about 54 px, and a card is
+ * 46 px wide, so three cards leave each earlier one about 4 px.
+ */
+export function commandStep(cardWidth: number, count: number, room: number): number {
+  const sideBySide = cardWidth + 4
+  if (count < 2 || cardWidth + (count - 1) * sideBySide <= room) return sideBySide
+  // Whole pixels, rounded down, so rounding never pushes the last card past the room.
+  return Math.max(2, Math.floor((room - cardWidth) / (count - 1)))
+}
+
 /** Scryfall's small image is this tall; a card drawn taller uses the normal image, so it isn't blurred. */
 export const SMALL_IMAGE_HEIGHT = 204
 

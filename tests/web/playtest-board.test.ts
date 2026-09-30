@@ -4,8 +4,10 @@ import { cardData } from '../helpers/playtest.ts'
 import {
   asksCommandZone,
   boardKey,
+  CARD_RATIO,
   cardHeight,
   cardsInBox,
+  commandStep,
   COMMON_COUNTERS,
   counterChoices,
   counterTag,
@@ -84,6 +86,39 @@ describe('the board', () => {
     expect(previewHeight(900)).toBe(520)
     expect(previewHeight(700)).toBe(460)
     expect(previewHeight(300)).toBe(240)
+  })
+
+  it("sits the command zone's cards side by side, 4 px apart, when they fit", () => {
+    const width = 48 / CARD_RATIO
+    expect(commandStep(width, 1, 70)).toBe(width + 4)
+    expect(commandStep(width, 2, 94)).toBe(width + 4)
+    expect(commandStep(width, 3, 3 * width + 8)).toBe(width + 4)
+  })
+
+  it("overlaps the command zone's cards just enough to fit its room, at the smallest and largest piles", () => {
+    // The room the side block's row leaves the command zone, measured in headless Chrome: 222 px, less three 8-px gaps
+    // and the other piles, each as wide as its card or its label ("Library 91" is 52 px, "Grave 0" 41).
+    for (const { pile, room } of [
+      { pile: 48, room: 70 },
+      { pile: 64, room: 54 },
+    ]) {
+      const width = pile / CARD_RATIO
+      for (let count = 1; count <= 5; count++) {
+        const step = commandStep(width, count, room)
+        const zone = (s: number) => width + (count - 1) * s
+        expect(zone(step), `${count} cards at ${pile} px`).toBeLessThanOrEqual(room)
+        // Each earlier card shows as much of its left edge as the room allows: a pixel more would overflow.
+        if (step < width + 4) expect(zone(step + 1), `${count} cards at ${pile} px`).toBeGreaterThan(room)
+      }
+    }
+    expect(commandStep(48 / CARD_RATIO, 3, 70)).toBe(17)
+  })
+
+  it('never overlaps a command-zone card past its last 2 px, so none disappears', () => {
+    const width = 64 / CARD_RATIO
+    expect(commandStep(width, 10, 54)).toBe(2)
+    expect(commandStep(width, 3, 20)).toBe(2)
+    expect(commandStep(width, 2, 0)).toBe(2)
   })
 
   it('finds the cards whose centers are in a dragged box', () => {

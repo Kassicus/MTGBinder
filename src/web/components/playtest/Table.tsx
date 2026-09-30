@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { attachmentsOf, commanderTax, looseCards, losingReasons, visibleTo } from '../../../shared/playtest/status.ts'
 import type { CardState, SeatIndex } from '../../../shared/playtest/types.ts'
-import { CARD_RATIO, handHeight, toScreen, type Box } from '../../lib/playtest-board.ts'
+import { CARD_RATIO, commandStep, handHeight, toScreen, type Box } from '../../lib/playtest-board.ts'
 import type { SaveStatus } from '../../lib/playtest-save.ts'
 import { useBoard } from './board-context.ts'
 import { CardBack, CardView } from './CardView.tsx'
@@ -245,7 +245,7 @@ function Library({ seat, height }: { seat: SeatIndex; height: number }) {
       title="Click to draw a card; right-click for more"
       onClick={() => board.play({ type: 'draw', seat, count: 1 })}
       onContextMenu={(e) => board.openLibraryMenu(e, seat)}
-      className="flex flex-col items-center gap-0.5 text-[11px] text-stone-400"
+      className="flex shrink-0 flex-col items-center gap-0.5 text-[11px] whitespace-nowrap text-stone-400"
     >
       {count > 0 ? <CardBack height={height} /> : <EmptyPile height={height} />}
       <span>Library {count}</span>
@@ -264,7 +264,7 @@ function PublicPile({ seat, zone, label, height }: { seat: SeatIndex; zone: 'gra
       onClick={() => board.openPile(seat, zone)}
       onPointerEnter={() => top && board.setHovered(top)}
       onPointerLeave={() => board.setHovered(null)}
-      className="flex flex-col items-center gap-0.5 text-[11px] text-stone-400"
+      className="flex shrink-0 flex-col items-center gap-0.5 text-[11px] whitespace-nowrap text-stone-400"
     >
       {top ? <CardView data={board.game.data[top]!} height={height} /> : <EmptyPile height={height} />}
       <span>
@@ -279,23 +279,35 @@ function EmptyPile({ height }: { height: number }) {
 }
 
 /**
- * The command zone: its cards (commanders and emblems), and each commander's tax under them. Past two cards, each after
- * the first tucks under the one before, showing its left edge, so the side block keeps its width.
+ * The command zone: its cards (commanders and emblems), and each commander's tax under them. It takes the room the
+ * row's other piles leave. Its cards sit side by side while they fit there, else overlap just enough to fit
+ * (commandStep), each drawn over the one before, so every earlier card shows its left edge, where its name is.
  */
 function CommandZone({ seat, height }: { seat: SeatIndex; height: number }) {
   const board = useBoard()
+  const ref = useRef<HTMLDivElement>(null)
+  // The zone's width comes from the row (flex-1), not from its cards, so measuring it can't feed back into it.
+  const room = useElementSize(ref)?.width ?? Infinity
   const ids = board.game.seats[seat]!.command
-  const overlap = ids.length > 2 ? -Math.round((height / CARD_RATIO) * 0.6) : 0
+  const width = height / CARD_RATIO
+  const step = commandStep(width, ids.length, room)
   const owned = Object.values(board.game.cards).filter((c) => c.commander && c.owner === seat)
   const taxes = owned.map((c) => `${board.game.data[c.id]!.name}: tax +${commanderTax(board.game, c.id)}`)
+  // A grid of one column, as wide as its cards or its label (no wider than the zone): both centered in it, at the
+  // zone's left, as they sat before the zone took the row's room.
   return (
-    <div data-drop={`command-${seat}`} aria-label="Command zone" className="flex flex-col items-center gap-0.5 text-[11px] text-stone-400">
-      <div className="flex gap-1">
+    <div
+      ref={ref}
+      data-drop={`command-${seat}`}
+      aria-label="Command zone"
+      className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)] justify-items-center gap-0.5 text-[11px] text-stone-400"
+    >
+      <div className="flex">
         {ids.map((id, i) => (
           <div
             key={id}
             data-card={id}
-            style={i > 0 && overlap !== 0 ? { marginLeft: overlap } : undefined}
+            style={i > 0 ? { marginLeft: step - width } : undefined}
             onPointerDown={(e) => board.beginCardDrag(e, id, 'command')}
             onDoubleClick={() => board.playCard(id)}
             onContextMenu={(e) => board.openCardMenu(e, id)}
@@ -308,7 +320,9 @@ function CommandZone({ seat, height }: { seat: SeatIndex; height: number }) {
         ))}
         {ids.length === 0 && <EmptyPile height={height} />}
       </div>
-      <span title={taxes.join('\n')}>{owned.length === 0 ? 'Command' : `Tax ${owned.map((c) => `+${commanderTax(board.game, c.id)}`).join(' / ')}`}</span>
+      <span title={taxes.join('\n')} className="max-w-full truncate">
+        {owned.length === 0 ? 'Command' : `Tax ${owned.map((c) => `+${commanderTax(board.game, c.id)}`).join(' / ')}`}
+      </span>
     </div>
   )
 }
