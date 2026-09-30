@@ -13,6 +13,7 @@ import { collectionRoutes } from './collection/routes.ts'
 import { deckRoutes } from './decks/routes.ts'
 import type { DB } from './db/index.ts'
 import { ApiError, localOnly } from './http.ts'
+import { playtestRoutes } from './playtest/routes.ts'
 import { scanRoutes, type ScanService } from './scanner/routes.ts'
 import type { ScryfallClient } from './scryfall/client.ts'
 import { searchRoutes } from './search/routes.ts'
@@ -31,6 +32,8 @@ export interface AppDeps {
   backupDir?: string
   /** Built SPA directory. When set, non-API requests serve it, falling back to index.html. */
   webDistDir?: string
+  /** Picks the playtest's seeds and random starting seats (tests pass their own). */
+  playtestRandom?: (max: number) => number
 }
 
 export function createApp(deps: AppDeps): Hono {
@@ -54,6 +57,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/collection', collectionRoutes(deps))
   app.route('/api/sets', setRoutes(deps))
   app.route('/api/decks', deckRoutes(deps))
+  app.route('/api/playtest', playtestRoutes({ db: deps.db, random: deps.playtestRandom }))
   app.route('/api/settings', settingsRoutes(deps))
   if (deps.scanner) app.route('/api/scan', scanRoutes({ db: deps.db, scanner: deps.scanner }))
   if (deps.ai) {
