@@ -30,6 +30,8 @@ export function Battlefield({ seat, fieldRef }: { seat: SeatIndex; fieldRef?: Re
   const ref = fieldRef ?? own
   const size = useElementSize(ref)
   const flipped = seat !== board.viewer
+  // `isolate`: the cards' z-indexes (10 for each card drawn over another) stay inside the half, under the menu and
+  // its backdrop, the dialogs, the panels, and the preview drawn over the table.
   return (
     <div
       ref={ref}
@@ -41,7 +43,7 @@ export function Battlefield({ seat, fieldRef }: { seat: SeatIndex; fieldRef?: Re
       onContextMenu={(e) => {
         if (e.target === e.currentTarget) board.openFieldMenu(e, seat)
       }}
-      className={`relative min-h-0 flex-1 overflow-hidden rounded-lg border border-stone-800 bg-stone-900/40 ${board.attaching ? 'cursor-crosshair' : ''}`}
+      className={`relative isolate min-h-0 flex-1 overflow-hidden rounded-lg border border-stone-800 bg-stone-900/40 ${board.attaching ? 'cursor-crosshair' : ''}`}
     >
       {size &&
         looseCards(board.game, seat).map((card, i) => <FieldCard key={card.id} card={card} layer={i} size={size} flipped={flipped} />)}
@@ -264,7 +266,7 @@ function PublicPile({ seat, zone, label, height }: { seat: SeatIndex; zone: 'gra
       onPointerLeave={() => board.setHovered(null)}
       className="flex flex-col items-center gap-0.5 text-[11px] text-stone-400"
     >
-      {top ?<CardView data={board.game.data[top]!} height={height} /> : <EmptyPile height={height} />}
+      {top ? <CardView data={board.game.data[top]!} height={height} /> : <EmptyPile height={height} />}
       <span>
         {label} {cards.length}
       </span>

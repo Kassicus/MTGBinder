@@ -395,7 +395,10 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
   }, [play])
 
   const switchSide = useCallback(() => {
-    if (twoSeats) setViewer((v) => other(v))
+    if (!twoSeats) return
+    setViewer((v) => other(v))
+    // Every card moves out from under the pointer, and no pointerleave follows: nothing is hovered now.
+    setHoverAt(null)
   }, [twoSeats])
 
   // The board's keys (spec §5.9.4). None while a field, a dialog, or a menu has them, nor right after `g`.
@@ -420,8 +423,11 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
           if (hover !== null && !g.cards[hover]!.faceDown && canFlip(g, hover)) play({ type: 'flip', id: hover })
           break
         case 'plus':
+          if (targets.length > 0) play({ type: 'counter', ids: targets, name: '+1/+1', delta: 1 })
+          break
         case 'minus':
-          if (targets.length > 0) play({ type: 'counter', ids: targets, name: '+1/+1', delta: key === 'plus' ? 1 : -1 })
+          // Like the menu, which offers "Remove a +1/+1 counter" only when one of the cards has one.
+          if (targets.some((i) => (g.cards[i]!.counters['+1/+1'] ?? 0) > 0)) play({ type: 'counter', ids: targets, name: '+1/+1', delta: -1 })
           break
         case 'draw':
           play({ type: 'draw', seat: v, count: 1 })

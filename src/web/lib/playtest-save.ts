@@ -52,27 +52,31 @@ export function createSaver(deps: SaverDeps): Saver {
     if (running) return
     running = true
     let attempt = 0
-    while (queue.length > 0) {
-      const op = queue[0]!
-      setStatus(attempt === 0 ? 'saving' : 'retrying')
-      try {
-        await deps.send(op)
-        if (queue[0] === op) queue.shift()
-        attempt = 0
-      } catch (err) {
-        // Dropped while it was being sent: whatever the server said about it no longer matters.
-        if (queue[0] !== op) continue
-        if (err instanceof ApiRequestError && err.status < 500) {
-          queue = []
-          deps.onRefused(err)
-          break
+    try {
+      while (queue.length > 0) {
+        const op = queue[0]!
+        setStatus(attempt === 0 ? 'saving' : 'retrying')
+        try {
+          await deps.send(op)
+          if (queue[0] === op) queue.shift()
+          attempt = 0
+        } catch (err) {
+          // Dropped while it was being sent: whatever the server said about it no longer matters.
+          if (queue[0] !== op) continue
+          if (err instanceof ApiRequestError && err.status < 500) {
+            queue = []
+            deps.onRefused(err)
+            break
+          }
+          setStatus('retrying')
+          await deps.wait(retryDelay(attempt++))
         }
-        setStatus('retrying')
-        await deps.wait(retryDelay(attempt++))
       }
+    } finally {
+      // Even when telling of a refusal throws, the next save must start the loop again, not wait on this one.
+      running = false
+      setStatus('saved')
     }
-    running = false
-    setStatus('saved')
   }
 
   return {

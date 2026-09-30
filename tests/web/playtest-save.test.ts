@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { ApiRequestError } from '../../src/web/lib/api.ts'
 import { createSaver, retryDelay, type SaveOp } from '../../src/web/lib/playtest-save.ts'
 
-/** A server the test answers by hand: each send waits until the test settles it. */
-function fakeServer() {
+/** A server the test answers by hand: each send waits until the test settles it. `onRefused` also hears refusals. */
+function fakeServer(onRefused: (err: ApiRequestError) => void = () => {}) {
   const sent: SaveOp[] = []
   const waiting: Array<{ resolve: () => void; reject: (err: unknown) => void }> = []
   const waits: number[] = []
@@ -18,7 +18,10 @@ function fakeServer() {
       waits.push(ms)
       return new Promise<void>((resolve) => (wake = resolve))
     },
-    onRefused: (err) => refused.push(err),
+    onRefused: (err) => {
+      refused.push(err)
+      onRefused(err)
+    },
   })
   const tick = () => new Promise((r) => setTimeout(r, 0))
   return {
@@ -98,6 +101,33 @@ describe('saving actions', () => {
     expect(seqs(s.sent)).toEqual(['append 0', 'undo 0'])
     s.saver.undo('g', 5)
     expect(seqs(s.sent)).toEqual(['append 0', 'undo 0', 'undo 5'])
+  })
+
+  it('keeps saving after telling of a refused save throws', async () => {
+    // The throw escapes the saver's loop as an unhandled rejection (as it would in the page); catch it here, not in
+    // the test runner, which would fail the run for it.
+    const others = process.listeners('unhandledRejection')
+    const escaped: unknown[] = []
+    const catcher = (err: unknown) => escaped.push(err)
+    process.removeAllListeners('unhandledRejection')
+    process.on('unhandledRejection', catcher)
+    try {
+      const s = fakeServer(() => {
+        throw new Error('the page is gone')
+      })
+      s.saver.append('g', 0, nextTurn)
+      await s.fail(new ApiRequestError(409, 'conflict', 'The game changed in another window'))
+      expect(s.refused.map((e) => e.status)).toEqual([409])
+      expect(escaped.map(String)).toEqual(['Error: the page is gone'])
+      expect(s.saver.status()).toBe('saved')
+      s.saver.append('g', 0, nextTurn)
+      expect(seqs(s.sent)).toEqual(['append 0', 'append 0'])
+      await s.ok()
+      expect(s.saver.status()).toBe('saved')
+    } finally {
+      process.off('unhandledRejection', catcher)
+      for (const listener of others) process.on('unhandledRejection', listener)
+    }
   })
 
   it('ignores what the server says about a save dropped while it was sent', async () => {

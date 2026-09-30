@@ -46,9 +46,12 @@ export function tapTo(cards: readonly CardState[]): boolean {
   return !cards.every((c) => c.tapped)
 }
 
-/** Whether moving a commander there first asks "Command zone instead?" (spec §5.9.5). */
+/**
+ * Whether moving a commander there first asks "Command zone instead?" (spec §5.9.5): not when it's leaving the command
+ * zone, where "instead" would be staying put.
+ */
 export function asksCommandZone(card: CardState, to: Dest): boolean {
-  return card.commander && ['graveyard', 'exile', 'hand', 'library'].includes(to.zone)
+  return card.commander && card.zone !== 'command' && ['graveyard', 'exile', 'hand', 'library'].includes(to.zone)
 }
 
 /** The cards whose centers fall inside a dragged box (pixels, in the battlefield). */

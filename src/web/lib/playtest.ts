@@ -22,8 +22,10 @@ export function usePlaytestGame() {
         throw err
       }
     },
-    // The page holds the live game: it's fetched again only when a save is refused.
+    // The page holds the live game: it's fetched again only when a save is refused. That game may hold actions not
+    // yet saved, so it's kept when the page is left (by default it would go after 5 minutes) and comes back as played.
     staleTime: Infinity,
+    gcTime: Infinity,
   })
 }
 

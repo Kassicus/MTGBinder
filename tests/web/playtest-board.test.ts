@@ -87,6 +87,10 @@ describe('the board', () => {
     expect(asksCommandZone(card('x'), { zone: 'graveyard' })).toBe(false)
   })
 
+  it("doesn't ask for a commander that's in the command zone already", () => {
+    expect(asksCommandZone(card('c', { commander: true, zone: 'command', pos: null }), { zone: 'graveyard' })).toBe(false)
+  })
+
   it('shortens common counters', () => {
     expect(counterTag('+1/+1', 3)).toBe('+3/+3')
     expect(counterTag('-1/-1', 1)).toBe('−1/−1')

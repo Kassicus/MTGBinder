@@ -10,8 +10,8 @@ export interface MenuState {
 }
 
 /**
- * A right-click menu at the pointer, kept inside the window. A click outside it, Escape, or choosing an item closes it.
- * Arrow keys move between its items.
+ * A right-click menu at the pointer, kept inside the window. A click or right-click outside it, Escape, or choosing an
+ * item closes it. Arrow keys move between its items.
  */
 export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -26,9 +26,6 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
   }, [menu])
 
   useEffect(() => {
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose()
-    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
@@ -41,44 +38,58 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
         buttons[(at + (e.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length]?.focus()
       }
     }
-    window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onKey, true)
-    return () => {
-      window.removeEventListener('pointerdown', onDown, true)
-      window.removeEventListener('keydown', onKey, true)
-    }
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
   return (
-    <div
-      ref={ref}
-      role="menu"
-      aria-label={menu.title}
-      style={spot}
-      onContextMenu={(e) => e.preventDefault()}
-      className="fixed z-50 min-w-52 rounded-lg border border-stone-700 bg-stone-900 py-1 text-sm shadow-2xl shadow-black/60"
-    >
-      <div className="truncate px-3 pt-1 pb-1.5 text-xs text-stone-500">{menu.title}</div>
-      {menu.items.map((item, i) =>
-        item === 'separator' ? (
-          <div key={i} className="my-1 border-t border-stone-800" />
-        ) : (
-          <button
-            key={i}
-            role="menuitem"
-            disabled={item.disabled}
-            onClick={() => {
-              onClose()
-              item.onSelect()
-            }}
-            className="flex w-full items-baseline justify-between gap-4 px-3 py-1 text-left text-stone-200 outline-none hover:bg-stone-800 focus:bg-stone-800 disabled:text-stone-600 disabled:hover:bg-transparent"
-          >
-            <span>{item.label}</span>
-            {item.hint && <kbd className="font-mono text-xs text-stone-500">{item.hint}</kbd>}
-          </button>
-        ),
-      )}
-    </div>
+    <>
+      {/*
+        Behind the menu and over the table, so a click or right-click outside the menu only closes it: it never
+        reaches a card (a tap), a library (a draw), or another menu. A right-click (or Control-click) closes on its
+        contextmenu, which must land here too, so its pointerdown leaves the backdrop in place.
+      */}
+      <div
+        aria-hidden
+        onPointerDown={(e) => {
+          if (e.button === 0 && !e.ctrlKey) onClose()
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          onClose()
+        }}
+        className="fixed inset-0 z-50"
+      />
+      <div
+        ref={ref}
+        role="menu"
+        aria-label={menu.title}
+        style={spot}
+        onContextMenu={(e) => e.preventDefault()}
+        className="fixed z-50 min-w-52 rounded-lg border border-stone-700 bg-stone-900 py-1 text-sm shadow-2xl shadow-black/60"
+      >
+        <div className="truncate px-3 pt-1 pb-1.5 text-xs text-stone-500">{menu.title}</div>
+        {menu.items.map((item, i) =>
+          item === 'separator' ? (
+            <div key={i} className="my-1 border-t border-stone-800" />
+          ) : (
+            <button
+              key={i}
+              role="menuitem"
+              disabled={item.disabled}
+              onClick={() => {
+                onClose()
+                item.onSelect()
+              }}
+              className="flex w-full items-baseline justify-between gap-4 px-3 py-1 text-left text-stone-200 outline-none hover:bg-stone-800 focus:bg-stone-800 disabled:text-stone-600 disabled:hover:bg-transparent"
+            >
+              <span>{item.label}</span>
+              {item.hint && <kbd className="font-mono text-xs text-stone-500">{item.hint}</kbd>}
+            </button>
+          ),
+        )}
+      </div>
+    </>
   )
 }
 

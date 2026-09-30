@@ -265,7 +265,7 @@ export function CounterDialog({
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm text-stone-300">
           Counter
-          <input list="counter-names" value={name} onChange={(e) => setName(e.target.value)} className={`w-36 ${field}`} />
+          <input list="counter-names" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} className={`w-36 ${field}`} />
           <datalist id="counter-names">
             {COUNTERS.map((c) => (
               <option key={c} value={c} />
