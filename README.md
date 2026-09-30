@@ -93,6 +93,29 @@ Basic lands are left out of completion, cost to finish, and the buy list by defa
 
 Any card's details also offer **Add to deck**.
 
+## Playtest
+
+**Playtest** is a table for playing your decks by hand: you pilot both seats, or one seat to goldfish, and resolve
+every card yourself. Binder moves cards, keeps the counts, and remembers the game; it enforces no rules. Pick a deck
+for each seat (or **Nobody** for seat 2), who goes first, and starting life, or press **Playtest** in a deck.
+
+- **Mulligans** follow the playgroup's rule: draw 10, click 3 to put on the bottom (the first one clicked ends up at the
+  very bottom), and keep 7. **Mulligan** shuffles and draws 10 again, as often as you like.
+- **The table**: the seat you're viewing sits at the bottom, the other seat at the top. **Next turn** untaps the next
+  seat's permanents, draws its card, and turns the board to it; **Switch side** (or Tab) turns it by hand. The other
+  seat's hand shows only card backs.
+- **Cards**: drag a card anywhere on the battlefield, to a hand, onto a library, graveyard, exile, the command zone, or
+  the stack in the bar. Drop one on the other seat's battlefield to give it control. Double-click a card in hand to
+  play it; click one on the battlefield to tap or untap it. Drag a box, or Shift-click, to select several. Right-click
+  a card for everything else: counters, flip, face down, attach, a token copy, an ability on the stack, or move it.
+- **Libraries**: click to draw; right-click to draw several, look at the top cards (scry and surveil), search, mill,
+  reveal the top card, or shuffle. Click a graveyard or exile to see its cards and drag them out.
+- **Commander**: commanders start in the command zone, and their tax counts itself. A commander going to a graveyard,
+  exile, a hand, or a library asks **Command zone instead?** Commander damage is entered in each seat's panel.
+- **Undo** (⌘Z) takes back anything, back to the mulligans. **Log** tells the game as the seat you're viewing would
+  know it. The game saves as you play: leave the page or quit Binder, and it's there when you come back. **End game**
+  offers a **Rematch** with the same decks or a **New game**.
+
 ## Brainstorm
 
 Open **Brainstorm** to ask Claude what to build next, or how to improve a deck. Claude searches your library and
@@ -148,9 +171,10 @@ Scryfall card images, downloaded once into `data/bench`.
 ## Keyboard shortcuts
 
 `?` lists them. `/` finds a card. `g` then a letter goes to a page: `g l` Library, `g c` Scan, `g d` Decks,
-`g s` Search, `g e` Sets, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a` switches between
-Auto and Manual. None of them fire while a text field or dropdown has focus. (Space still captures on a focused
-dropdown, instead of opening it.)
+`g p` Playtest, `g s` Search, `g e` Sets, `g b` Brainstorm, `g t` Settings. On the Scan page, Space captures and `a`
+switches between Auto and Manual. On the Playtest page, `t` taps, `f` flips, `+` and `-` add or remove a +1/+1
+counter (on the card under the pointer, or the selection), `d` draws, Tab switches side, and ⌘Z undoes. None of them
+fire while a text field or dropdown has focus. (Space still captures on a focused dropdown, instead of opening it.)
 
 ## Development
 
