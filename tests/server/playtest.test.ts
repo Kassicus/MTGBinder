@@ -176,6 +176,13 @@ describe('saving actions', () => {
     expect(count(db, 'playtest_actions')).toBe(0)
   })
 
+  it("refuses a card id that's the name of something every object has (400), so a saved game's log still reads", async () => {
+    const game = await started([await atraxa(), null])
+    await save(game, 0, keep(game))
+    expect(await error(await save(game, 1, { type: 'reveal', ids: ['constructor'] }))).toEqual([400, 'bad_action', 'That card is no longer in the game'])
+    expect(count(db, 'playtest_actions')).toBe(1)
+  })
+
   it('takes back only the last action of the game named', async () => {
     const game = await started([await atraxa(), null])
     await save(game, 0, keep(game))

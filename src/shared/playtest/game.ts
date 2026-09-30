@@ -1,6 +1,6 @@
-import { defaultSpot } from './placement.ts'
+import { clampPos, defaultSpot } from './placement.ts'
 import { shuffled } from './rng.ts'
-import { faceOf, looseCards } from './status.ts'
+import { attachmentsOf, faceOf, isTucked, looseCards } from './status.ts'
 import {
   MODEL_VERSION,
   type Action,
@@ -173,12 +173,14 @@ export function apply(state: GameState, action: Action): GameState {
     }
     case 'attach': {
       const c = onBattlefield(d, action.id)
-      if (action.to !== null) {
-        onBattlefield(d, action.to)
-        // Following the host's own host must never lead back to the card: that would attach it to itself.
-        for (let host: string | null = action.to; host !== null; host = d.cards[host]?.attachedTo ?? null) {
-          if (host === c.id) throw new PlaytestError(`${nameOf(d, c.id)} can't be attached to itself`)
-        }
+      if (action.to === null) {
+        detach(d, c)
+        break
+      }
+      onBattlefield(d, action.to)
+      // Following the host's own host must never lead back to the card: that would attach it to itself.
+      for (let host: string | null = action.to; host !== null; host = d.cards[host]?.attachedTo ?? null) {
+        if (host === c.id) throw new PlaytestError(`${nameOf(d, c.id)} can't be attached to itself`)
       }
       setCard(d, c.id, { attachedTo: action.to })
       break
@@ -198,7 +200,8 @@ export function apply(state: GameState, action: Action): GameState {
       const source = onBattlefield(d, action.id)
       const id = `t${d.nextId++}`
       d.data = { ...d.data, [id]: d.data[source.id]! }
-      d.cards[id] = blankCard(id, source.controller, 'battlefield', false, true)
+      // A copy of a transformed double-faced card is a copy of the face showing.
+      d.cards[id] = { ...blankCard(id, source.controller, 'battlefield', false, true), face: source.face }
       placeOnBattlefield(d, id, source.controller)
       break
     }
@@ -327,10 +330,13 @@ function choosingSeat(d: GameState, seat: SeatIndex): void {
   if (seat !== d.choosing) throw new PlaytestError("It's the other seat's turn to choose its hand")
 }
 
+/**
+ * A card of the game. Ids come from saved actions, so only the game's own cards count: an id like `constructor` or
+ * `__proto__` names something every object has, not a card.
+ */
 function card(d: GameState, id: string): CardState {
-  const found = d.cards[id]
-  if (!found) throw new PlaytestError('That card is no longer in the game')
-  return found
+  if (!Object.hasOwn(d.cards, id)) throw new PlaytestError('That card is no longer in the game')
+  return d.cards[id]!
 }
 
 function inZone(d: GameState, id: string, zone: CardState['zone'], seat: SeatIndex): CardState {
@@ -390,9 +396,43 @@ function takeOut(d: GameState, c: CardState): void {
   seat[c.zone] = seat[c.zone].filter((id) => id !== c.id)
 }
 
-/** Every card attached to `host` comes off it and stays where it is. */
-function detachFrom(d: GameState, host: string): void {
-  for (const c of Object.values(d.cards)) if (c.attachedTo === host) setCard(d, c.id, { attachedTo: null })
+/**
+ * How far out from its host the board draws each card tucked under it, toward the middle of the table: the Board's
+ * FieldCard peeks each out by 22% of a card's height, and a card is 30% of its half's height.
+ */
+const TUCK_STEP = 0.07
+
+/** Where the board draws a card tucked under `host`, `steps` out from it (the first card tucked is furthest out). */
+function tuckedSpot(host: CardState, steps: number): Pos {
+  return clampPos({ x: host.pos!.x, y: host.pos!.y + TUCK_STEP * steps })
+}
+
+/**
+ * Every card attached to `host`, which is leaving the battlefield, comes off it. One tucked under it stays where it
+ * was drawn, so it doesn't jump back to the spot it had before it was attached (a spot nothing kept free); one
+ * attached across sides is drawn at its own spot, and stays there. Called while the game still has `host` on the
+ * battlefield.
+ */
+function detachFrom(d: GameState, host: CardState): void {
+  const tucked = attachmentsOf(d, host).map((c) => c.id)
+  for (const c of Object.values(d.cards)) {
+    if (c.attachedTo !== host.id) continue
+    const i = tucked.indexOf(c.id)
+    setCard(d, c.id, i === -1 ? { attachedTo: null } : { attachedTo: null, pos: tuckedSpot(host, tucked.length - i) })
+  }
+}
+
+/** Detach: a card tucked under its host comes out where it was drawn, on top of the others; any other stays put. */
+function detach(d: GameState, c: CardState): void {
+  if (!isTucked(d, c)) {
+    setCard(d, c.id, { attachedTo: null })
+    return
+  }
+  const host = d.cards[c.attachedTo!]!
+  const tucked = attachmentsOf(d, host).map((t) => t.id)
+  setCard(d, c.id, { attachedTo: null, pos: tuckedSpot(host, tucked.length - tucked.indexOf(c.id)) })
+  const seat = d.seats[c.controller]!
+  seat.battlefield = [...seat.battlefield.filter((id) => id !== c.id), c.id]
 }
 
 /** The spots taken on a seat's battlefield: every card there that isn't tucked under another. */
@@ -427,8 +467,9 @@ function moveOne(d: GameState, id: string, to: Dest, at: Pos | undefined): void 
   const from = c.zone
   takeOut(d, c)
   if (c.token && to.zone !== 'battlefield' && to.zone !== 'stack') {
+    // What's attached comes off first, while the token is still there to tell where its cards were drawn.
+    if (from === 'battlefield') detachFrom(d, c)
     delete d.cards[id]
-    detachFrom(d, id)
     return
   }
   if (c.commander && from === 'command' && (to.zone === 'stack' || to.zone === 'battlefield')) {
@@ -438,7 +479,7 @@ function moveOne(d: GameState, id: string, to: Dest, at: Pos | undefined): void 
   let next: CardState = { ...c, zone: to.zone }
   if (from === 'battlefield' && to.zone !== 'battlefield') {
     next = { ...next, tapped: false, faceDown: false, face: 0, counters: {}, attachedTo: null, pos: null }
-    detachFrom(d, id)
+    detachFrom(d, c)
   }
   if (to.zone !== 'battlefield' && to.zone !== 'stack') next.controller = next.owner
   if (to.zone === 'battlefield') next.controller = to.seat

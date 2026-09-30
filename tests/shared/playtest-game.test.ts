@@ -236,6 +236,79 @@ describe('moving cards', () => {
     const id = hand(g)[0]!
     expect(() => apply(g, { type: 'move', ids: [id, id], to: { zone: 'exile' } })).toThrow('A card is named twice')
   })
+
+  it("refuses an id that's the name of something every object has, as it would any other that isn't a card", () => {
+    const g = apply(playing(), { type: 'ability', id: '1-c1' })
+    /** Why the action is refused, or 'applied'. */
+    const refusal = (action: Action) => {
+      try {
+        apply(g, action)
+        return 'applied'
+      } catch (err) {
+        return err instanceof PlaytestError ? err.message : `${String(err)} (not a PlaytestError)`
+      }
+    }
+    const gone = 'That card is no longer in the game'
+    expect(refusal({ type: 'reveal', ids: ['constructor'] })).toBe(gone)
+    expect(refusal({ type: 'move', ids: ['__proto__'], to: { zone: 'hand' } })).toBe(gone)
+    expect(refusal({ type: 'ability', id: 'toString' })).toBe(gone)
+    expect(refusal({ type: 'resolve', item: 'constructor' })).toBe('That is no longer on the stack')
+    expect(refusal({ type: 'commanderDamage', seat: 1, commander: 'toString', delta: 1 })).toBe(gone)
+  })
+})
+
+describe('cards taken off their host', () => {
+  /** Seat 1's host at (0.1, 0.5), with two cards dropped elsewhere and then attached to it: `a` first, then `b`. */
+  function twoTucked() {
+    let g = playing()
+    const [host, a, b] = hand(g).filter((id) => g.data[id]!.kind === 'creature') as [string, string, string]
+    g = run(
+      g,
+      { type: 'move', ids: [host, a, b], to: { zone: 'battlefield', seat: 0, at: [{ x: 0.1, y: 0.5 }, { x: 0.9, y: 0.2 }, { x: 0.6, y: 0.3 }] } },
+      { type: 'attach', id: a, to: host },
+      { type: 'attach', id: b, to: host },
+    )
+    return { g, host, a, b }
+  }
+
+  it('leaves the cards tucked under a host that leaves the battlefield where they were drawn, peeking out from it', () => {
+    const { g, host, a, b } = twoTucked()
+    const after = apply(g, { type: 'move', ids: [host], to: { zone: 'graveyard' } })
+    // The board draws the first tucked card furthest out, a step of 0.07 toward the middle of the table for each.
+    expect(after.cards[a]).toMatchObject({ attachedTo: null, pos: { x: 0.1, y: 0.64 } })
+    expect(after.cards[b]).toMatchObject({ attachedTo: null, pos: { x: 0.1, y: 0.57 } })
+    expect(after.seats[0]!.battlefield).toEqual([a, b])
+    // A token host vanishes as it leaves; the card under it stays on the battlefield all the same.
+    const token = run(
+      apply(after, { type: 'token', seat: 0, token: cardData('Treasure', 'other'), count: 1 }),
+      { type: 'move', ids: ['t1'], to: { zone: 'battlefield', seat: 0, at: [{ x: 0.5, y: 0.9 }] } },
+      { type: 'attach', id: a, to: 't1' },
+      { type: 'move', ids: ['t1'], to: { zone: 'exile' } },
+    )
+    expect(token.cards[a]).toMatchObject({ attachedTo: null, pos: { x: 0.5, y: 0.97 } })
+  })
+
+  it('puts a card detached by hand where it was drawn, on top of the others', () => {
+    const { g, host, a, b } = twoTucked()
+    const after = apply(g, { type: 'attach', id: a, to: null })
+    expect(after.cards[a]).toMatchObject({ attachedTo: null, pos: { x: 0.1, y: 0.64 } })
+    expect(after.seats[0]!.battlefield).toEqual([host, b, a])
+  })
+
+  it('leaves a card attached across sides at its own spot when it comes off', () => {
+    let g = playing()
+    const mine = firstCreature(g)
+    const theirs = firstCreature(g, 1)
+    g = run(
+      g,
+      { type: 'move', ids: [mine], to: { zone: 'battlefield', seat: 0, at: [{ x: 0.3, y: 0.3 }] } },
+      { type: 'move', ids: [theirs], to: { zone: 'battlefield', seat: 1, at: [{ x: 0.7, y: 0.8 }] } },
+      { type: 'attach', id: mine, to: theirs },
+    )
+    expect(isTucked(g, g.cards[mine]!)).toBe(false)
+    expect(apply(g, { type: 'move', ids: [theirs], to: { zone: 'exile' } }).cards[mine]).toMatchObject({ attachedTo: null, pos: { x: 0.3, y: 0.3 } })
+    expect(apply(g, { type: 'attach', id: mine, to: null }).cards[mine]).toMatchObject({ attachedTo: null, pos: { x: 0.3, y: 0.3 } })
+  })
 })
 
 describe('commanders', () => {
@@ -338,6 +411,13 @@ describe('cards on the battlefield', () => {
     expect(g.data['t4']).toBe(g.data[id])
     expect(g.cards['t4']).toMatchObject({ token: true, owner: 0 })
     expect(g.nextId).toBe(5)
+  })
+
+  it('makes a token copy of a double-faced card show the face its card shows', () => {
+    const cards = [...deck(1, 20).cards, { id: '1-dfc', commander: false, data: doubleFaced('Delver', 'Aberration') }]
+    let g = playing(startGame(setup({ seats: [{ ...deck(1, 20), cards }] })))
+    g = run(g, { type: 'move', ids: ['1-dfc'], to: { zone: 'battlefield', seat: 0 } }, { type: 'flip', id: '1-dfc' }, { type: 'copy', id: '1-dfc' })
+    expect(g.cards['t1']).toMatchObject({ token: true, face: 1 })
   })
 })
 
