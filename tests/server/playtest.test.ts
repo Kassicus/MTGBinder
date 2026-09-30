@@ -165,6 +165,25 @@ describe('saving actions', () => {
     expect(replay(saved.setup, saved.actions).turn).toBe(2)
   })
 
+  it("saves an emblem, which goes to the seat's command zone", async () => {
+    const game = await started([await atraxa(), null])
+    await save(game, 0, keep(game))
+    const face = {
+      name: 'Elspeth, Knight-Errant Emblem',
+      manaCost: '',
+      typeLine: 'Emblem — Elspeth',
+      oracleText: 'Artifacts, creatures, enchantments, and lands you control have indestructible.',
+      power: null,
+      toughness: null,
+      loyalty: null,
+      image: null,
+    }
+    const emblem = { name: face.name, faces: [face], imageSmall: null, colors: '', kind: 'emblem' as const }
+    expect((await save(game, 1, { type: 'token', seat: 0, token: emblem, count: 1 })).status).toBe(204)
+    const saved = await body<SavedGame>(await app.request('/api/playtest'))
+    expect(replay(saved.setup, saved.actions).seats[0]!.command).toEqual(['1-1', 't1'])
+  })
+
   it('refuses another game or a position other than the next (409), an action that does not apply (400), and one malformed', async () => {
     const game = await started([await atraxa(), null])
     const changed = [409, 'conflict', 'The game changed in another window']

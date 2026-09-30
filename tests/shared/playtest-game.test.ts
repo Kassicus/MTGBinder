@@ -228,6 +228,20 @@ describe('moving cards', () => {
     expect(g.cards['t1']).toBeUndefined()
     expect(g.seats[0]!.graveyard).toEqual([])
     expect(g.seats[0]!.battlefield).toEqual([])
+    const again = apply(playing(), { type: 'token', seat: 0, token: cardData('Goblin'), count: 1 })
+    expect(apply(again, { type: 'move', ids: ['t1'], to: { zone: 'command' } }).cards['t1']).toBeUndefined()
+  })
+
+  it("puts an emblem in its seat's command zone, where it stays; anywhere else but the battlefield, it vanishes", () => {
+    let g = apply(playing(), { type: 'token', seat: 1, token: cardData('Elspeth, Knight-Errant Emblem', 'emblem'), count: 2 })
+    expect(g.seats[1]!.command).toEqual(['2-c1', 't1', 't2'])
+    expect(g.cards['t1']).toMatchObject({ zone: 'command', owner: 1, controller: 1, token: true, pos: null })
+    expect(g.seats[1]!.battlefield).toEqual([])
+    g = run(g, { type: 'move', ids: ['t1'], to: { zone: 'battlefield', seat: 1 } }, { type: 'move', ids: ['t1'], to: { zone: 'command' } })
+    expect(g.seats[1]!.command).toEqual(['2-c1', 't2', 't1'])
+    g = apply(g, { type: 'move', ids: ['t1'], to: { zone: 'exile' } })
+    expect(g.cards['t1']).toBeUndefined()
+    expect(g.seats[1]!.exile).toEqual([])
   })
 
   it('refuses a card that is gone, or named twice', () => {

@@ -112,6 +112,9 @@ describe('the log', () => {
     expect(made![1]).toBe('Krenko Goblins created 4 Goblin tokens')
     expect(lines(withGoblins, { type: 'tap', ids: ['t1', 't2', 't3', a], tapped: true })[0]![1]).toBe(`Krenko Goblins tapped Goblin ×3 and ${n}`)
     expect(lines(g, { type: 'token', seat: 0, token: cardData('Treasure', 'other'), count: 1 })[0]![1]).toBe('Krenko Goblins created a Treasure token')
+    const emblem = cardData('Elspeth, Knight-Errant Emblem', 'emblem')
+    expect(lines(g, { type: 'token', seat: 0, token: emblem, count: 1 })[0]![1]).toBe('Krenko Goblins got an emblem: Elspeth, Knight-Errant Emblem')
+    expect(lines(g, { type: 'token', seat: 1, token: emblem, count: 2 })[0]![0]).toBe('Meren Aristocrats got 2 emblems: Elspeth, Knight-Errant Emblem')
     expect(lines(g, { type: 'life', seat: 1, delta: -3 })[0]![0]).toBe('Meren Aristocrats lost 3 life (37)')
     expect(lines(g, { type: 'poison', seat: 1, delta: 1 })[0]![0]).toBe('Meren Aristocrats got 1 poison counter (1)')
     expect(lines(g, { type: 'commanderDamage', seat: 1, commander: '1-c1', delta: 5 })[0]![0]).toBe(

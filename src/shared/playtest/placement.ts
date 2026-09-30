@@ -5,16 +5,23 @@ import type { CardKind, Pos } from './types.ts'
  * row. Lands run along the seat's own edge, creatures along the middle of the table, and other permanents between.
  */
 
-/** Where a card goes on the battlefield, from its front face's type line. A land creature sits with the lands. */
+/**
+ * Where a card goes on the battlefield, from its front face's type line. A land creature sits with the lands; an
+ * emblem goes to the command zone instead.
+ */
 export function kindOf(typeLine: string): CardKind {
+  if (/^Emblem\b/.test(typeLine)) return 'emblem'
   if (/\bLand\b/.test(typeLine)) return 'land'
   if (/\bCreature\b/.test(typeLine)) return 'creature'
   if (/\b(Instant|Sorcery)\b/.test(typeLine)) return 'spell'
   return 'other'
 }
 
-/** Each row's distance from the seat's edge. A spell resolving to the battlefield is placed as another permanent. */
-export const ROW_Y: Record<CardKind, number> = { land: 0.2, other: 0.5, spell: 0.5, creature: 0.8 }
+/**
+ * Each row's distance from the seat's edge. A spell resolving to the battlefield is placed as another permanent, and
+ * so is an emblem dragged there.
+ */
+export const ROW_Y: Record<CardKind, number> = { land: 0.2, other: 0.5, spell: 0.5, emblem: 0.5, creature: 0.8 }
 /** How far apart cards are placed, and where a row starts and ends. */
 export const STEP = 0.07
 export const ROW_START = 0.06

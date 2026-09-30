@@ -11,8 +11,8 @@ export const MODEL_VERSION = 1
 /** A seat: 0 is seat 1, 1 is seat 2. */
 export type SeatIndex = 0 | 1
 
-/** Where a card goes when it enters the battlefield by default, and what playing it does. */
-export type CardKind = 'land' | 'creature' | 'other' | 'spell'
+/** Where a card goes when it enters the battlefield by default, and what playing it does. An emblem goes to the command zone. */
+export type CardKind = 'land' | 'creature' | 'other' | 'spell' | 'emblem'
 
 /** One face of a card, as a game card carries it. */
 export interface PlayFace {
@@ -37,6 +37,11 @@ export interface CardData {
   /** WUBRG letters ('' for colorless), for a token's text frame. */
   colors: string
   kind: CardKind
+  /**
+   * The tokens and emblems the card makes (spec §5.9.8), from the card data. Missing for a token, and for a card from
+   * card data imported before Binder knew tokens.
+   */
+  tokens?: CardData[]
 }
 
 /** One card in a deck snapshot. */
@@ -169,7 +174,7 @@ export type Action =
   | { type: 'counter'; ids: string[]; name: string; delta: number }
   | { type: 'setCounter'; ids: string[]; name: string; value: number }
   | { type: 'attach'; id: string; to: string | null }
-  /** Makes `count` tokens of `token` on `seat`'s battlefield. */
+  /** Makes `count` tokens of `token` on `seat`'s battlefield, or, for an emblem, in its command zone. */
   | { type: 'token'; seat: SeatIndex; token: CardData; count: number }
   | { type: 'copy'; id: string }
   | { type: 'ability'; id: string }

@@ -186,13 +186,18 @@ export function apply(state: GameState, action: Action): GameState {
       break
     }
     case 'token': {
-      seatOf(d, action.seat)
+      const seat = seatOf(d, action.seat)
       d.data = { ...d.data }
       for (let i = 0; i < count(action.count); i++) {
         const id = `t${d.nextId++}`
         d.data[id] = action.token
-        d.cards[id] = blankCard(id, action.seat, 'battlefield', false, true)
-        placeOnBattlefield(d, id, action.seat)
+        if (action.token.kind === 'emblem') {
+          d.cards[id] = blankCard(id, action.seat, 'command', false, true)
+          seat.command = [...seat.command, id]
+        } else {
+          d.cards[id] = blankCard(id, action.seat, 'battlefield', false, true)
+          placeOnBattlefield(d, id, action.seat)
+        }
       }
       break
     }
@@ -451,7 +456,8 @@ function placeOnBattlefield(d: GameState, id: string, seat: SeatIndex, at?: Pos)
 /**
  * Moves cards, in order. A library's top or bottom takes them so the first ends up on top, or at the very bottom.
  * Leaving the battlefield clears what only means something there; a token leaving the battlefield and the stack
- * vanishes; a commander leaving the command zone for the stack or battlefield adds to its tax.
+ * vanishes (but an emblem stays in the command zone); a commander leaving the command zone for the stack or
+ * battlefield adds to its tax.
  */
 function moveAll(d: GameState, ids: readonly string[], to: Dest): void {
   if (to.zone === 'battlefield') {
@@ -466,7 +472,8 @@ function moveOne(d: GameState, id: string, to: Dest, at: Pos | undefined): void 
   const c = card(d, id)
   const from = c.zone
   takeOut(d, c)
-  if (c.token && to.zone !== 'battlefield' && to.zone !== 'stack') {
+  const stays = to.zone === 'battlefield' || to.zone === 'stack' || (to.zone === 'command' && d.data[id]!.kind === 'emblem')
+  if (c.token && !stays) {
     // What's attached comes off first, while the token is still there to tell where its cards were drawn.
     if (from === 'battlefield') detachFrom(d, c)
     delete d.cards[id]

@@ -2,7 +2,7 @@ import { MODEL_VERSION, type CardData, type CardKind, type SeatSetup, type Setup
 
 /** A card as a game carries it: one face, with a made-up image. */
 export function cardData(name: string, kind: CardKind = 'creature', extra: Partial<CardData> = {}): CardData {
-  const typeLine = { land: 'Land', creature: 'Creature — Goblin', other: 'Artifact', spell: 'Instant' }[kind]
+  const typeLine = { land: 'Land', creature: 'Creature — Goblin', other: 'Artifact', spell: 'Instant', emblem: 'Emblem — Goblin' }[kind]
   return {
     name,
     faces: [

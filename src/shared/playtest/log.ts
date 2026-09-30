@@ -99,6 +99,9 @@ function describe(before: GameState, action: Action, after: GameState, viewer: S
       return host === null ? `${who} detached ${cards([action.id])}` : `${who} detached ${cards([action.id])} from ${cards([host])}`
     }
     case 'token':
+      if (action.token.kind === 'emblem') {
+        return `${seat(action.seat)} got ${action.count === 1 ? 'an emblem' : `${action.count} emblems`}: ${action.token.name}`
+      }
       return `${seat(action.seat)} created ${action.count === 1 ? `a ${action.token.name} token` : `${action.count} ${action.token.name} tokens`}`
     case 'copy':
       return `${seat(controllerOf(before, action.id))} created a token copy of ${cards([action.id])}`

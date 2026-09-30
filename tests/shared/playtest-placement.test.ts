@@ -39,5 +39,8 @@ describe('kindOf', () => {
     expect(kindOf('Sorcery')).toBe('spell')
     expect(kindOf('Legendary Planeswalker — Jace')).toBe('other')
     expect(kindOf('Enchantment — Aura')).toBe('other')
+    expect(kindOf('Emblem — Elspeth')).toBe('emblem')
+    expect(kindOf('Emblem // Card')).toBe('emblem')
+    expect(kindOf('Token Creature — Goblin')).toBe('creature')
   })
 })

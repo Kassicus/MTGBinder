@@ -30,7 +30,7 @@ const Card: z.ZodType<CardData> = z.object({
   faces: z.array(Face).min(1).max(4),
   imageSmall: Text(500).nullable(),
   colors: z.string().regex(/^[WUBRG]{0,5}$/),
-  kind: z.enum(['land', 'creature', 'other', 'spell']),
+  kind: z.enum(['land', 'creature', 'other', 'spell', 'emblem']),
 })
 
 const DestSchema: z.ZodType<Dest> = z.union([
