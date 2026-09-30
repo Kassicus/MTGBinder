@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { apply, PlaytestError, replay } from '../../shared/playtest/game.ts'
-import type { Action, GameState, SavedGame, SeatIndex } from '../../shared/playtest/types.ts'
+import type { Action, GameState, SavedGame, SeatIndex, Setup } from '../../shared/playtest/types.ts'
 import { ApiRequestError, apiGet, apiPost, apiSend } from './api.ts'
 import { createSaver, type SaveStatus } from './playtest-save.ts'
 import { useToast } from './toast.tsx'
@@ -51,17 +51,29 @@ const saver = createSaver({
   },
 })
 
-// Each list of actions played, and the game it makes: so playing an action applies just that one.
-const games = new WeakMap<readonly Action[], GameState>()
+// Each list of actions played, the setup it was played from, and the game they make: so playing an action applies
+// just that one. The query keeps an old list in place of an equal new one (a new game's empty list takes the old
+// game's), so a list answers only for the setup it was made from.
+const games = new WeakMap<readonly Action[], { setup: Setup; game: GameState }>()
 
 /** The game a saved game's actions make. */
 export function gameOf(saved: SavedGame): GameState {
-  let game = games.get(saved.actions)
-  if (!game) {
-    game = replay(saved.setup, saved.actions)
-    games.set(saved.actions, game)
-  }
+  const known = games.get(saved.actions)
+  if (known && known.setup === saved.setup) return known.game
+  const game = replay(saved.setup, saved.actions)
+  games.set(saved.actions, { setup: saved.setup, game })
   return game
+}
+
+/**
+ * Plays an action on the saved game and stores the longer list in the query, or throws a PlaytestError when it doesn't
+ * apply. The query stores a copy of the list, so the game is kept for the copy.
+ */
+export function playAction(queryClient: QueryClient, current: SavedGame, action: Action): GameState {
+  const next = apply(gameOf(current), action)
+  const stored = queryClient.setQueryData<SavedGame>(PLAYTEST_KEY, { ...current, actions: [...current.actions, action] })
+  if (stored) games.set(stored.actions, { setup: stored.setup, game: next })
+  return next
 }
 
 export interface GameSession {
@@ -90,9 +102,8 @@ export function useGameSession(saved: SavedGame): GameSession {
     (action: Action) => {
       const current = queryClient.getQueryData<SavedGame | null>(PLAYTEST_KEY)
       if (!current) return false
-      let next: GameState
       try {
-        next = apply(gameOf(current), action)
+        playAction(queryClient, current, action)
       } catch (err) {
         if (err instanceof PlaytestError) {
           toast.error(err.message)
@@ -100,9 +111,6 @@ export function useGameSession(saved: SavedGame): GameSession {
         }
         throw err
       }
-      const actions = [...current.actions, action]
-      games.set(actions, next)
-      queryClient.setQueryData<SavedGame>(PLAYTEST_KEY, { ...current, actions })
       saver.append(current.startedAt, current.actions.length, action)
       return true
     },
