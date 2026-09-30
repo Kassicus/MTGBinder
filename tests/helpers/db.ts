@@ -1,7 +1,8 @@
-import { scryfallToRow, type CardRow } from '../../src/server/cards/map.ts'
+import { scryfallToRow, shouldImport, shouldImportToken, tokenParts, type CardRow } from '../../src/server/cards/map.ts'
 import { insertCardRows, rebuildCardNames } from '../../src/server/cards/repo.ts'
+import { createTokenStaging, dropTokenStaging, insertTokenLinks, replaceTokens } from '../../src/server/cards/tokens.ts'
 import { openDb, type DB } from '../../src/server/db/index.ts'
-import { loadFixtureCards } from './fixtures.ts'
+import { loadFixtureCards, loadTokenFixtures } from './fixtures.ts'
 
 export function fixtureRows(): CardRow[] {
   return loadFixtureCards()
@@ -15,6 +16,19 @@ export function createTestDb(): DB {
   insertCardRows(db, 'cards', fixtureRows())
   rebuildCardNames(db)
   return db
+}
+
+/**
+ * Fills `tokens` and `card_tokens` from the token fixture, the way an import does: the fixture cards' tokens (Treasure,
+ * Beast, Insect, Human Cleric), Elspeth's emblem, Witch's Mark's Role, and Incubator // Phyrexian.
+ */
+export function addTokens(db: DB): void {
+  const lines = [...loadFixtureCards(), ...loadTokenFixtures()]
+  createTokenStaging(db)
+  insertCardRows(db, 'tokens_staging', lines.filter(shouldImportToken).map((c) => scryfallToRow(c)!))
+  insertTokenLinks(db, lines.filter(shouldImport).flatMap((c) => tokenParts(c).map((t) => [c.oracle_id!, t] as const)))
+  db.transaction(() => replaceTokens(db))()
+  dropTokenStaging(db)
 }
 
 export function count(db: DB, table: string): number {

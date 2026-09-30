@@ -64,3 +64,41 @@ export function replaceTokens(db: DB): void {
   db.exec(`INSERT OR IGNORE INTO card_tokens (oracle_id, token_oracle_id)
            SELECT l.oracle_id, t.oracle_id FROM card_tokens_staging l JOIN tokens_staging t ON t.id = l.token_id`)
 }
+
+/**
+ * The tokens each of these cards makes, by the card's oracle id, each card's in name order. Scryfall's Copy stand-in
+ * (a blank token that hundreds of cards list) is left out: a copy is made from the permanent copied (Copy, spec §5.9.8).
+ */
+export function tokensMadeBy(db: DB, oracleIds: readonly string[]): Map<string, TokenRow[]> {
+  const made = new Map<string, TokenRow[]>()
+  if (oracleIds.length === 0) return made
+  const rows = db
+    .prepare(
+      `SELECT ct.oracle_id AS maker, t.* FROM card_tokens ct JOIN tokens t ON t.oracle_id = ct.token_oracle_id
+       WHERE ct.oracle_id IN (SELECT value FROM json_each(?)) AND NOT (t.name = 'Copy' AND t.type_line = 'Token')
+       ORDER BY t.name COLLATE NOCASE, t.type_line, t.oracle_id`,
+    )
+    .all(JSON.stringify(oracleIds)) as Array<TokenRow & { maker: string }>
+  for (const { maker, ...token } of rows) {
+    const list = made.get(maker)
+    if (list) list.push(token)
+    else made.set(maker, [token])
+  }
+  return made
+}
+
+/**
+ * Tokens and emblems whose name holds the query, ignoring case (spec §5.9.8): the whole name first, then names that
+ * start with it, then the rest, each in name order. At most `limit`; none for a blank query.
+ */
+export function searchTokens(db: DB, query: string, limit = 50): TokenRow[] {
+  const q = query.trim().toLowerCase()
+  if (q === '') return []
+  return db
+    .prepare(
+      `SELECT * FROM tokens WHERE instr(lower(name), @q) > 0
+       ORDER BY lower(name) = @q DESC, instr(lower(name), @q) = 1 DESC, name COLLATE NOCASE, type_line, oracle_id
+       LIMIT @limit`,
+    )
+    .all({ q, limit }) as TokenRow[]
+}

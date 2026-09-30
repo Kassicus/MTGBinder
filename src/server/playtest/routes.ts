@@ -1,19 +1,20 @@
 import { randomInt } from 'node:crypto'
 import { Hono } from 'hono'
 import { PlaytestError, replay } from '../../shared/playtest/game.ts'
-import { MODEL_VERSION, type SavedGame, type SeatIndex, type Setup } from '../../shared/playtest/types.ts'
+import { MODEL_VERSION, type CardData, type SavedGame, type SeatIndex, type Setup } from '../../shared/playtest/types.ts'
+import { searchTokens } from '../cards/tokens.ts'
 import type { DB } from '../db/index.ts'
 import { ApiError, parseWith, readJson } from '../http.ts'
 import { deleteAction, deleteGame, gameProgress, getSavedGame, saveAction, saveNewGame } from './repo.ts'
-import { AppendBody, StartBody, UndoQuery } from './schema.ts'
-import { snapshotDeck } from './snapshot.ts'
+import { AppendBody, StartBody, TokenQuery, UndoQuery } from './schema.ts'
+import { snapshotDeck, tokenDataOf } from './snapshot.ts'
 
 const NO_GAME = 'No game in progress'
 const CHANGED = 'The game changed in another window'
 
 /**
  * The playtest's game (spec §5.9.1): start one, read it, save each action in order, take the last one back, end it.
- * `random` picks the seed and a random starting seat (tests pass their own).
+ * And the token search (spec §5.9.8). `random` picks the seed and a random starting seat (tests pass their own).
  */
 export function playtestRoutes(deps: { db: DB; random?: (max: number) => number }): Hono {
   const { db } = deps
@@ -71,6 +72,13 @@ export function playtestRoutes(deps: { db: DB; random?: (max: number) => number 
   routes.delete('/', (c) => {
     deleteGame(db)
     return c.body(null, 204)
+  })
+
+  // Every token and emblem whose name holds the query, as game cards: empty until card data has been imported with
+  // tokens (spec §4.2).
+  routes.get('/tokens', (c) => {
+    const { q } = parseWith(TokenQuery, c.req.query())
+    return c.json(searchTokens(db, q).map(tokenDataOf) satisfies CardData[])
   })
 
   return routes

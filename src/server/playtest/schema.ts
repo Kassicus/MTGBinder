@@ -86,6 +86,9 @@ const StartedAt = z.string().min(1).max(40)
 
 export const AppendBody = z.object({ startedAt: StartedAt, seq: z.number().int().min(0), action: ActionSchema })
 
+/** The token search's query (spec §5.9.8): part of a token's name. */
+export const TokenQuery = z.object({ q: z.string().max(100).default('') })
+
 /** Undo's query: the game, and the position of the action taken back. */
 export const UndoQuery = z.object({
   startedAt: StartedAt,

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { DB } from '../../src/server/db/index.ts'
 import { replay } from '../../src/shared/playtest/game.ts'
-import type { Action, SavedGame } from '../../src/shared/playtest/types.ts'
+import type { Action, CardData, SavedGame } from '../../src/shared/playtest/types.ts'
 import type { ApiErrorBody, DeckSummary } from '../../src/shared/types.ts'
 import { body, makeApp } from '../helpers/app.ts'
-import { count, createTestDb } from '../helpers/db.ts'
-import { fixtureCard } from '../helpers/fixtures.ts'
+import { addTokens, count, createTestDb } from '../helpers/db.ts'
+import { fixtureCard, loadTokenFixtures } from '../helpers/fixtures.ts'
 
 let db: DB
 let app: ReturnType<typeof makeApp>
@@ -67,6 +67,35 @@ function keep(game: SavedGame): Action {
   return { type: 'keep', seat: 0, bottom: g.seats[0]!.hand.slice(7) }
 }
 
+describe('the token search', () => {
+  const search = async (q: string) => body<CardData[]>(await app.request(`/api/playtest/tokens?q=${encodeURIComponent(q)}`))
+
+  it('finds tokens and emblems by name, ignoring case: the whole name first, then names starting with it', async () => {
+    addTokens(db)
+    expect((await search('t')).map((t) => t.name)).toEqual([
+      'Treasure',
+      'Beast',
+      'Elspeth, Knight-Errant Emblem',
+      'Incubator // Phyrexian',
+      'Insect',
+    ])
+    expect((await search('BEAST')).map((t) => t.name)).toEqual(['Beast'])
+    expect((await search('elspeth'))[0]).toMatchObject({ name: 'Elspeth, Knight-Errant Emblem', kind: 'emblem', colors: '' })
+    const [incubator] = await search('incubator')
+    expect(incubator!.faces.map((f) => [f.name, f.image !== null])).toEqual([
+      ['Incubator', true],
+      ['Phyrexian', true],
+    ])
+    expect(await search('  ')).toEqual([])
+    expect(await search('%')).toEqual([])
+  })
+
+  it('finds nothing until card data has been imported with tokens, and refuses a query past 100 characters', async () => {
+    expect(await search('treasure')).toEqual([])
+    expect((await app.request(`/api/playtest/tokens?q=${'a'.repeat(101)}`)).status).toBe(400)
+  })
+})
+
 describe('starting a game', () => {
   it("copies each deck's commander and main boards into the game, one card per copy, commanders first", async () => {
     const deck = await atraxa()
@@ -97,6 +126,53 @@ describe('starting a game', () => {
       ['Petty Theft', null],
     ])
     expect(seat!.cards.some((c) => c.data.name === 'Counterspell' || c.data.name === 'Wrath of God')).toBe(false)
+  })
+
+  it('gives each card the tokens it makes, from the card data', async () => {
+    addTokens(db)
+    const id = await newDeck('Tokens')
+    for (const name of ['Smothering Tithe', 'Garruk Wildspeaker', 'Beast Within', 'Sol Ring']) await add(id, name)
+    await add(id, 'Forest', 'main', 6)
+    const { setup } = await started([id, null])
+    const named = (name: string) => setup.seats[0]!.cards.find((c) => c.data.name === name)!.data
+    const treasure = loadTokenFixtures().find((c) => c.name === 'Treasure')!
+    expect(named('Smothering Tithe').tokens).toEqual([
+      {
+        name: 'Treasure',
+        faces: [
+          {
+            name: 'Treasure',
+            manaCost: '',
+            typeLine: 'Token Artifact — Treasure',
+            oracleText: treasure.oracle_text,
+            power: null,
+            toughness: null,
+            loyalty: null,
+            image: treasure.image_uris!.normal,
+          },
+        ],
+        imageSmall: treasure.image_uris!.small,
+        colors: '',
+        kind: 'other',
+      },
+    ])
+    // Garruk and Beast Within make the same Beast.
+    const beasts = named('Garruk Wildspeaker').tokens!
+    expect(beasts.map((t) => [t.name, t.kind, t.faces[0]!.power, t.colors])).toEqual([['Beast', 'creature', '3', 'G']])
+    expect(named('Beast Within').tokens).toEqual(named('Garruk Wildspeaker').tokens)
+    expect(named('Sol Ring')).not.toHaveProperty('tokens')
+  })
+
+  it("leaves Scryfall's Copy stand-in out of a card's tokens", async () => {
+    addTokens(db)
+    const tithe = fixtureCard('Smothering Tithe').oracle_id!
+    db.prepare(`INSERT INTO tokens (oracle_id, name, layout, type_line, oracle_text, colors) VALUES ('copy', 'Copy', 'token', 'Token', '', '')`).run()
+    db.prepare(`INSERT INTO card_tokens (oracle_id, token_oracle_id) VALUES (?, 'copy')`).run(tithe)
+    const id = await newDeck('Tithes')
+    await add(id, 'Smothering Tithe')
+    await add(id, 'Forest', 'main', 9)
+    const { setup } = await started([id, null])
+    expect(setup.seats[0]!.cards.find((c) => c.data.name === 'Smothering Tithe')!.data.tokens!.map((t) => t.name)).toEqual(['Treasure'])
   })
 
   it('numbers seat 2 apart, and picks a random starting seat when asked', async () => {
