@@ -272,8 +272,15 @@ export function apply(state: GameState, action: Action): GameState {
       const seat = seatOf(d, action.seat)
       distinct(action.ids)
       for (const id of action.ids) inZone(d, id, 'library', action.seat)
+      // A tutor back into the library ("shuffle, then put that card on top") shuffles the rest first, so the cards
+      // found stay where they're put; anywhere else, the library is shuffled after they've left it.
+      const intoLibrary = action.to.zone === 'library'
+      if (action.shuffle && intoLibrary) {
+        const found = new Set(action.ids)
+        ;[seat.library, d.rng] = shuffled(seat.library.filter((id) => !found.has(id)), d.rng)
+      }
       moveAll(d, action.ids, action.to)
-      if (action.shuffle) [seat.library, d.rng] = shuffled(seat.library, d.rng)
+      if (action.shuffle && !intoLibrary) [seat.library, d.rng] = shuffled(seat.library, d.rng)
       break
     }
     case 'nextTurn': {

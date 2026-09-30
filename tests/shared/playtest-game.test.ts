@@ -416,6 +416,19 @@ describe('the library', () => {
     expect(() => apply(g, { type: 'search', seat: 0, ids: [hand(g)[0]!], to: { zone: 'hand' }, shuffle: false })).toThrow("isn't in that library")
   })
 
+  it('shuffles the rest first when the cards found go back into the library, so they stay where they were put', () => {
+    const g = playing()
+    const [a, b] = [library(g)[20]!, library(g)[10]!]
+    const rest = library(g).filter((id) => id !== a && id !== b)
+    const top = apply(g, { type: 'search', seat: 0, ids: [a, b], to: { zone: 'library', at: 'top' }, shuffle: true })
+    expect(library(top).slice(0, 2)).toEqual([a, b])
+    expect(library(top).slice(2)).not.toEqual(rest)
+    expect([...library(top).slice(2)].sort()).toEqual([...rest].sort())
+    const bottom = apply(g, { type: 'search', seat: 0, ids: [a, b], to: { zone: 'library', at: 'bottom' }, shuffle: true })
+    expect(library(bottom).slice(-2)).toEqual([b, a])
+    expect(library(bottom).slice(0, -2)).not.toEqual(rest)
+  })
+
   it('shuffles, and reveals without changing anything', () => {
     const g = playing()
     expect(library(apply(g, { type: 'shuffle', seat: 0 }))).not.toEqual(library(g))

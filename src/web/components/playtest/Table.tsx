@@ -379,7 +379,12 @@ function Stack() {
           key={item.id}
           data-card={item.kind === 'spell' ? item.id : undefined}
           title="Double-click to resolve; right-click for more"
-          onDoubleClick={() => board.play({ type: 'resolve', item: item.id })}
+          onDoubleClick={() => {
+            // Resolving takes this item from under the pointer. An ability's hover is its source, which stays where it
+            // is, so the Board can't tell the hover has ended: end it here.
+            board.setHovered(null)
+            board.play({ type: 'resolve', item: item.id })
+          }}
           onContextMenu={(e) => board.openStackMenu(e, item.id)}
           onPointerDown={item.kind === 'spell' ? (e) => board.beginCardDrag(e, item.id, 'stack') : undefined}
           onPointerEnter={() => board.setHovered(item.kind === 'spell' ? item.id : item.source)}

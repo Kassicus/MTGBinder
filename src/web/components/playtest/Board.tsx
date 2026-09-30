@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent } from 'react'
 import { list } from '../../../shared/playtest/log.ts'
 import { canFlip, looseCards, visibleTo } from '../../../shared/playtest/status.ts'
-import type { Action, Dest, GameState, SavedGame, SeatIndex } from '../../../shared/playtest/types.ts'
+import type { Action, CardState, Dest, GameState, SavedGame, SeatIndex } from '../../../shared/playtest/types.ts'
 import { useDecks } from '../../lib/decks.ts'
 import { useEndGame, useStartGame, type GameSession } from '../../lib/playtest.ts'
 import { asksCommandZone, boardKey, cardHeight, cardsInBox, fromScreen, playDest, tapTo } from '../../lib/playtest-board.ts'
@@ -58,6 +58,12 @@ function dropTarget(x: number, y: number): HTMLElement | null {
   return null
 }
 
+/** A card's name as the seat viewed knows it: a face-down card it can't see stays unnamed. */
+function nameFor(game: GameState, id: string, viewer: SeatIndex): string {
+  const card = game.cards[id]
+  return card === undefined || visibleTo(card, viewer) ? game.data[id]!.name : 'A face-down card'
+}
+
 /** The playtest's table (spec §5.9.3–§5.9.6): both halves, the hands, the turn bar, and everything the page opens. */
 export function Board({ saved, game, session }: { saved: SavedGame; game: GameState; session: GameSession }) {
   const { play, undo, canUndo, saveStatus } = session
@@ -65,7 +71,8 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
   const twoSeats = game.seats.length === 2
   const [viewer, setViewer] = useState<SeatIndex>(game.phase === 'playing' ? game.active : game.choosing)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const [hovered, setHovered] = useState<string | null>(null)
+  // The card under the pointer, and the zone it was in then (see `hovered` below).
+  const [hoverAt, setHoverAt] = useState<{ id: string; zone: CardState['zone'] } | null>(null)
   // Where the pointer is across the window, for the preview's side: kept out of state, so moving doesn't re-render.
   const pointerX = useRef(0)
   const [menu, setMenu] = useState<MenuState | null>(null)
@@ -89,6 +96,15 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
   // Handlers read the latest game and view through this, so they needn't change on every action.
   const latest = useRef({ game, viewer, selection, attaching })
   latest.current = { game, viewer, selection, attaching }
+
+  // A card played, resolved, or moved from under the pointer takes its element with it, and no pointerleave follows:
+  // once the card hovered has left the zone it was hovered in, or the game, nothing is hovered.
+  if (hoverAt !== null && game.cards[hoverAt.id]?.zone !== hoverAt.zone) setHoverAt(null)
+  const hovered = hoverAt?.id ?? null
+  const setHovered = useCallback((id: string | null) => {
+    const zone = id === null ? undefined : latest.current.game.cards[id]?.zone
+    setHoverAt(id === null || zone === undefined ? null : { id, zone })
+  }, [])
 
   const moveCards = useCallback(
     (ids: string[], to: Dest) => {
@@ -246,7 +262,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
       const { game: g, selection: sel, viewer: v } = latest.current
       const card = g.cards[id]
       if (!card) return
-      const name = visibleTo(card, v) ? g.data[id]!.name : 'A face-down card'
+      const name = nameFor(g, id, v)
       const ids = card.zone === 'battlefield' && sel.has(id) ? [...sel] : [id]
       const title = ids.length > 1 ? `${ids.length} cards` : name
       const moves = (except: string): MenuItem[] =>
@@ -265,9 +281,11 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
       if (card.zone === 'battlefield') {
         const cards = ids.map((i) => g.cards[i]!)
         const plus = cards.some((c) => (c.counters['+1/+1'] ?? 0) > 0)
+        // A face-down card can't flip or be copied: either would tell the other seat what it is (or that it has two faces).
+        const oneFaceUp = ids.length === 1 && !card.faceDown
         openMenu(e, title, [
           { label: tapTo(cards) ? 'Tap' : 'Untap', hint: 't', onSelect: () => play({ type: 'tap', ids, tapped: tapTo(cards) }) },
-          ...(ids.length === 1 && canFlip(g, id) ? [{ label: 'Flip', hint: 'f', onSelect: () => play({ type: 'flip', id }) }] : []),
+          ...(oneFaceUp && canFlip(g, id) ? [{ label: 'Flip', hint: 'f', onSelect: () => play({ type: 'flip', id }) }] : []),
           {
             label: cards.every((c) => c.faceDown) ? 'Turn face up' : 'Turn face down',
             onSelect: () => play({ type: 'faceDown', ids, down: !cards.every((c) => c.faceDown) }),
@@ -279,7 +297,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
           ...(card.attachedTo !== null && ids.length === 1
             ? [{ label: 'Detach', onSelect: () => play({ type: 'attach', id, to: null }) }]
             : [{ label: 'Attach to…', onSelect: () => setAttaching(ids) }]),
-          ...(ids.length === 1 ? [{ label: 'Copy (a token copy)', onSelect: () => play({ type: 'copy', id }) }] : []),
+          ...(oneFaceUp ? [{ label: 'Copy (a token copy)', onSelect: () => play({ type: 'copy', id }) }] : []),
           { label: 'Create token…', onSelect: () => setDialog({ kind: 'token', seat: card.controller }) },
           ...(ids.length === 1 ? [{ label: 'Put an ability on the stack', onSelect: () => play({ type: 'ability', id }) }] : []),
           'separator',
@@ -399,7 +417,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
           if (targets.length > 0) play({ type: 'tap', ids: targets, tapped: tapTo(targets.map((i) => g.cards[i]!)) })
           break
         case 'flip':
-          if (hover !== null && canFlip(g, hover)) play({ type: 'flip', id: hover })
+          if (hover !== null && !g.cards[hover]!.faceDown && canFlip(g, hover)) play({ type: 'flip', id: hover })
           break
         case 'plus':
         case 'minus':
@@ -464,7 +482,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
         )}
         {attaching && (
           <p role="status" className="absolute top-1 left-1/2 z-50 -translate-x-1/2 rounded-md bg-amber-700 px-3 py-1 text-sm text-white shadow-lg">
-            Click the card to attach {list(attaching.map((id) => game.data[id]!.name))} to (Esc cancels)
+            Click the card to attach {list(attaching.map((id) => nameFor(game, id, viewer)))} to (Esc cancels)
           </p>
         )}
         {top !== null && (
@@ -502,6 +520,7 @@ export function Board({ saved, game, session }: { saved: SavedGame; game: GameSt
         <DialogFor
           dialog={dialog}
           game={game}
+          viewer={viewer}
           play={play}
           canRematch={rematchable}
           onRematch={() =>
@@ -575,6 +594,7 @@ function DragLayer({ store, game, viewer }: { store: ReturnType<typeof createDra
 function DialogFor({
   dialog,
   game,
+  viewer,
   play,
   canRematch,
   onRematch,
@@ -583,6 +603,7 @@ function DialogFor({
 }: {
   dialog: Dialog
   game: GameState
+  viewer: SeatIndex
   play: (action: Action) => boolean
   canRematch: boolean
   onRematch: () => void
@@ -614,7 +635,7 @@ function DialogFor({
     case 'counters':
       return (
         <CounterDialog
-          names={list(dialog.ids.map((id) => game.data[id]!.name))}
+          names={list(dialog.ids.map((id) => nameFor(game, id, viewer)))}
           current={game.cards[dialog.ids[0]!]?.counters ?? {}}
           onAdd={(name, delta) => play({ type: 'counter', ids: dialog.ids, name, delta })}
           onSet={(name, value) => play({ type: 'setCounter', ids: dialog.ids, name, value })}

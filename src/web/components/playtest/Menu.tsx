@@ -82,13 +82,21 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
   )
 }
 
-/** A modal dialog: Escape or a click outside closes it, and focus starts on its first field or button. */
+/**
+ * A modal dialog: Escape or a click outside closes it. Focus starts on its default (the element marked
+ * `data-autofocus`), or else its first field or button.
+ */
 export function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLElement>(null)
   const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
 
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[data-autofocus], input, select, button:not([aria-label="Close"])')?.focus()
+    // Two lookups, not one list of selectors: one list finds whichever comes first on the page, not the default.
+    const section = ref.current
+    const first =
+      section?.querySelector<HTMLElement>('[data-autofocus]') ??
+      section?.querySelector<HTMLElement>('input, select, button:not([aria-label="Close"])')
+    first?.focus()
     return () => opener?.focus()
   }, [opener])
 

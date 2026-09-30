@@ -128,6 +128,18 @@ describe('the log', () => {
     expect(text![1]).toBe(`Krenko Goblins looked at the top 3 cards: 1 on top, ${name(g, b)} into the graveyard, and a card into their hand`)
   })
 
+  it('says a search shuffled before the cards found went back into the library, or after they left it', () => {
+    const g = playing()
+    const [a, b] = g.seats[0]!.library.slice(-2) as [string, string]
+    expect(lines(g, { type: 'search', seat: 0, ids: [a], to: { zone: 'hand' }, shuffle: true })[0]).toEqual([
+      `Krenko Goblins searched their library and put ${name(g, a)} into their hand, then shuffled`,
+      'Krenko Goblins searched their library and put a card into their hand, then shuffled',
+    ])
+    expect(lines(g, { type: 'search', seat: 0, ids: [b], to: { zone: 'library', at: 'top' }, shuffle: true })[0]![1]).toBe(
+      'Krenko Goblins searched their library, shuffled it, and put a card on top of the library',
+    )
+  })
+
   it('starts each turn with who untapped and what they drew', () => {
     const g = playing()
     const top = g.seats[1]!.library[0]!

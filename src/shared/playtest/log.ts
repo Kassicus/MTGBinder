@@ -147,8 +147,10 @@ function describe(before: GameState, action: Action, after: GameState, viewer: S
       return `${seat(action.seat)} looked at the top ${plural(n, 'card')}: ${list(parts)}`
     }
     case 'search': {
-      const then = action.shuffle ? ', then shuffled' : ''
-      return `${seat(action.seat)} searched their library and put ${cards(action.ids)} ${where(action.to.zone, action.to.zone === 'library' ? action.to.at : null)}${then}`
+      const put = `put ${cards(action.ids)} ${where(action.to.zone, action.to.zone === 'library' ? action.to.at : null)}`
+      // A search back into the library shuffles before the cards are put there, so they stay where they're put.
+      if (action.shuffle && action.to.zone === 'library') return `${seat(action.seat)} searched their library, shuffled it, and ${put}`
+      return `${seat(action.seat)} searched their library and ${put}${action.shuffle ? ', then shuffled' : ''}`
     }
     case 'nextTurn': {
       const drawn = after.seats[after.active]!.hand.filter((id) => !before.seats[after.active]!.hand.includes(id))
